@@ -3,7 +3,7 @@
 ## 🌟 The Ultimate Vision
 A "Kubernetes for OpenClaw": The control plane that scales, orchestrates, and networks isolated AI agent environments on a single machine or cluster.
 
-Just as Kubernetes manages containerized applications, `claw-kubernetes` treats an OpenClaw `--profile` as a **Pod**. It automates the provisioning of these pods, assigns ports, injects secrets (Tokens), handles their lifecycle via Systemd, and eventually connects them in a mesh via the **Agent Control Protocol (ACP)**.
+Just as Kubernetes manages containerized applications, `claw-swarm` treats an OpenClaw `--profile` as a **Pod**. It automates the provisioning of these pods, assigns ports, injects secrets (Tokens), handles their lifecycle via Systemd, and eventually connects them in a mesh via the **Agent Control Protocol (ACP)**.
 
 ## Phase 0: Physical Isolation (Completed)
 - ✅ Separated `main` and `aimee` profiles into entirely decoupled environments.

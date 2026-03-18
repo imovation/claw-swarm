@@ -1,5 +1,5 @@
 #!/bin/bash
-# claw-kubernetes: Provisioner Script (Like kubectl apply -f pod.yaml)
+# claw-swarm: Provisioner Script (Like kubectl apply -f pod.yaml)
 set -e
 
 if [ "$#" -lt 3 ]; then

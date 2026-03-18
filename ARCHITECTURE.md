@@ -1,6 +1,6 @@
 # Claw Kubernetes: Dual-Instance Decoupled Architecture
 
-This document outlines the foundational architecture for the `claw-kubernetes` project—a system to horizontally scale and orchestrate isolated OpenClaw instances.
+This document outlines the foundational architecture for the `claw-swarm` project—a system to horizontally scale and orchestrate isolated OpenClaw instances.
 
 ## 1. Core Paradigm: The "Pod"
 Every OpenClaw instance runs as an isolated "Pod" defined by a `--profile <name>`.
@@ -24,7 +24,7 @@ This ensures:
  │    └── extensions/
  │         └── openclaw-lark/    # Hard copy of the Lark plugin
  │
- └── claw-kubernetes/            # Control Plane
+ └── claw-swarm/            # Control Plane
       ├── clawctl.sh             # The provisioning script
       └── ARCHITECTURE.md        # This doc
 ```
