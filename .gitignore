@@ -1,0 +1,10 @@
+# Logs
+*.log
+/logs
+
+# Systemd temp files
+*.service.bak
+
+# OS files
+.DS_Store
+Thumbs.db
