@@ -28,24 +28,25 @@
 如果你是集群的**编排者**，请阅读以下内容：
 
 ### 1. 快速孵化新实例 (Provisioning)
-使用内置的编排脚本 `clawctl.sh`。例如，为新朋友 Bob 创建一个实例：
+使用内置的编排脚本 `./bin/clawctl`。例如，为新朋友 Bob 创建一个实例：
 ```bash
-./clawctl.sh bob 18781 my-secure-token-888
+./bin/clawctl bob 18781 my-secure-token-888
 ```
 **脚本会自动完成：**
 - 创建 `~/.openclaw-bob/` 隔离目录。
 - 物理拷贝 `openclaw-lark` 插件副本（断绝依赖污染）。
 - 自动生成并启用 Systemd 用户服务 `openclaw-bob.service`。
-- 设置独立端口与 Token。
+- 强制统一 HTTP 与 WebSocket 端口，设置独立 Token。
 
 ### 2. 实例管理 (Lifecycle)
-每个实例都是一个独立的 Systemd 服务：
-- **查看所有 Pod 状态**：`systemctl --user status "openclaw-*"`
-- **重启 Aimee**：`systemctl --user restart openclaw-aimee.service`
-- **追踪日志**：`journalctl --user -fu openclaw-aimee.service`
+所有管理工具位于 `bin/` 目录下：
+- **查看状态**：`systemctl --user status "openclaw-*"`
+- **热改端口**：`./bin/claw-port aimee 18888`
+- **一键修复**：`./bin/claw-repair aimee`
+- **彻底删除**：`./bin/claw-rm aimee`
 
 ### 3. 架构规范 (Specs)
-请务必阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 以了解“防杀/隔离/环境变量注入”的底层设计逻辑，防止在手动修改配置时破坏隔离性。
+请务必阅读 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 以了解底层逻辑。
 
 ### 4. 演进路线 (Roadmap)
-查看 [ROADMAP.md](./ROADMAP.md) 了解未来的 ACP 代理互联、Opencode 联动等 Phase 1-4 计划。
+查看 [ROADMAP.md](docs/ROADMAP.md) 了解 Phase 1-4 计划。
