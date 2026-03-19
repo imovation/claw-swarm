@@ -1,0 +1,23 @@
+kind: Swarm
+version: v1
+pods:
+  - name: main
+    profile: default
+    port: 18789
+    token: "317939afcb24c15aa26a313932fb2f46b763200a63e7e08f"
+    resources:
+      browser: shared
+
+  - name: aimee
+    profile: aimee
+    port: 18881
+    token: "666666"
+    resources:
+      browser: dedicated
+
+  - name: shining
+    profile: shining
+    port: 18880
+    token: "Shining888888"
+    resources:
+      browser: dedicated

@@ -1,31 +1,51 @@
 #!/bin/bash
-# claw-swarm: Provisioner Script (Like kubectl apply -f pod.yaml)
+# claw-swarm: 实例供应脚本 (类 kubectl apply)
 set -e
 
 if [ "$#" -lt 3 ]; then
-  echo "Usage: ./clawctl.sh <PROFILE_NAME> <PORT> <TOKEN>"
-  echo "Example: ./clawctl.sh bob 18781 mysecuretoken"
+  echo "用法: ./clawctl <实例名> <端口> <令牌> [浏览器模式]"
+  echo "示例: ./clawctl bob 18781 mysecuretoken dedicated"
   exit 1
 fi
 
 PROFILE=$1
 PORT=$2
 TOKEN=$3
-DIR="/home/imovation/.openclaw-$PROFILE"
-SERVICE="/home/imovation/.config/systemd/user/openclaw-gateway-$PROFILE.service"
+BROWSER_MODE=${4:-dedicated}
 
-# Pre-flight checks
-if [ -d "$DIR" ]; then
-  echo "❌ Error: Profile '$PROFILE' already exists at $DIR"
-  exit 1
+# 确定目录和逻辑名称
+if [ "$PROFILE" == "default" ] || [ "$PROFILE" == "main" ]; then
+    DIR="/home/imovation/.openclaw"
+    SERVICE_NAME="openclaw-gateway"
+    PROFILE_ARG="default"
+else
+    DIR="/home/imovation/.openclaw-$PROFILE"
+    SERVICE_NAME="openclaw-gateway-$PROFILE"
+    PROFILE_ARG="$PROFILE"
+fi
+SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
+
+# 如果服务正在运行，先停止 (用于平滑更新)
+if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
+    echo "⏸️  [0/5] 正在停止旧实例 '$SERVICE_NAME'..."
+    systemctl --user stop "$SERVICE_NAME.service"
 fi
 
-if [ -f "$SERVICE" ]; then
-  echo "❌ Error: Systemd service 'openclaw-gateway-$PROFILE.service' already exists"
-  exit 1
+echo "📂 [1/5] 正在准备隔离运行环境 (Virtual Home)..."
+mkdir -p "$DIR/runtime/tmp" "$DIR/runtime/config" "$DIR/runtime/cache" "$DIR/runtime/data" "$DIR/runtime/browser"
+
+echo "⚙️  [2/5] 正在初始化 OpenClaw 配置..."
+if [ ! -d "$DIR" ]; then
+    mkdir -p "$DIR"
 fi
-...
-echo "🔧 [4/5] Generating Systemd User Service..."
+
+# 确保基本的 openclaw.json 存在
+if [ ! -f "$DIR/openclaw.json" ]; then
+    echo "正在为 $PROFILE 创建初始配置文件..."
+    echo '{"agents":{"defaults":{"workspace":"./workspace"}},"mode":"token","token":"'$TOKEN'"}' > "$DIR/openclaw.json"
+fi
+
+echo "🔧 [3/5] 正在生成 Systemd 用户服务 (注入隔离环境变量)..."
 cat << SYSTEMD_EOF > "$SERVICE"
 [Unit]
 Description=OpenClaw Gateway (profile: $PROFILE, claw-swarm managed)
@@ -34,15 +54,19 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=$DIR
-ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE gateway run --port $PORT
+ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE_ARG gateway run --port $PORT
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
 TimeoutStartSec=30
 SuccessExitStatus=0 143
 KillMode=control-group
+
+# 基础环境
 Environment=HOME=/home/imovation
-Environment=TMPDIR=/tmp
+Environment=PATH=/home/imovation/.nvm/versions/node/v24.14.0/bin:/home/imovation/.local/bin:/home/imovation/.npm-global/bin:/home/imovation/bin:/home/imovation/.volta/bin:/home/imovation/.asdf/shims:/home/imovation/.bun/bin:/home/imovation/.fnm/current/bin:/home/imovation/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin
+
+# 代理配置
 Environment=HTTP_PROXY=http://127.0.0.1:7897/
 Environment=HTTPS_PROXY=http://127.0.0.1:7897/
 Environment=NO_PROXY=localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
@@ -51,23 +75,38 @@ Environment=http_proxy=http://127.0.0.1:7897/
 Environment=https_proxy=http://127.0.0.1:7897/
 Environment=no_proxy=localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
 Environment=all_proxy=socks://127.0.0.1:7897/
-Environment=PATH=/home/imovation/.nvm/versions/node/v24.14.0/bin:/home/imovation/.local/bin:/home/imovation/.npm-global/bin:/home/imovation/bin:/home/imovation/.volta/bin:/home/imovation/.asdf/shims:/home/imovation/.bun/bin:/home/imovation/.fnm/current/bin:/home/imovation/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin
-Environment=OPENCLAW_SYSTEMD_UNIT=openclaw-gateway-$PROFILE.service
+
+# OpenClaw 核心标识
+Environment=OPENCLAW_SYSTEMD_UNIT=$SERVICE_NAME.service
 Environment=OPENCLAW_SERVICE_MARKER=openclaw
 Environment=OPENCLAW_SERVICE_KIND=gateway
-Environment=OPENCLAW_PROFILE=$PROFILE
+Environment=OPENCLAW_PROFILE=$PROFILE_ARG
 Environment=OPENCLAW_STATE_DIR=$DIR
 Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json
 
-[Install]
-WantedBy=default.target
+# --- 虚拟家目录隔离 (核心隔离) ---
+Environment=TMPDIR=$DIR/runtime/tmp
+Environment=XDG_CONFIG_HOME=$DIR/runtime/config
+Environment=XDG_CACHE_HOME=$DIR/runtime/cache
+Environment=XDG_DATA_HOME=$DIR/runtime/data
 SYSTEMD_EOF
 
-echo "⚡ [5/5] Deploying and Starting Pod..."
+# 根据模式注入浏览器隔离
+if [ "$BROWSER_MODE" == "dedicated" ]; then
+    echo "Environment=PUPPETEER_USER_DATA_DIR=$DIR/runtime/browser" >> "$SERVICE"
+fi
+
+cat << SYSTEMD_FOOTER >> "$SERVICE"
+
+[Install]
+WantedBy=default.target
+SYSTEMD_FOOTER
+
+echo "⚡ [4/5] 正在重载 Systemd 并启动实例 Pod..."
 systemctl --user daemon-reload
-systemctl --user enable --now openclaw-gateway-$PROFILE.service
+systemctl --user enable --now "$SERVICE_NAME.service"
 
-echo "✅ Pod '$PROFILE' deployed successfully on port $PORT!"
-echo "   TUI: openclaw --profile $PROFILE tui --token $TOKEN"
-echo "   Logs: journalctl --user -fu openclaw-gateway-$PROFILE.service"
-
+echo "✅ 实例 '$PROFILE' 已成功部署至端口 $PORT!"
+echo "   物理路径: $DIR"
+echo "   浏览器隔离: $BROWSER_MODE"
+echo "   查看日志: journalctl --user -fu $SERVICE_NAME.service"

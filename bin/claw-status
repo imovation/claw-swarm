@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+import os
+import yaml
+import subprocess
+import json
+import re
+
+CONFIG_FILE = "/home/imovation/claw-swarm/swarm.yaml"
+GREEN = '\033[0;32m'
+RED = '\033[0;31m'
+YELLOW = '\033[0;33m'
+CYAN = '\033[0;36m'
+BOLD = '\033[1m'
+NC = '\033[0m'
+
+def get_service_metrics(service_name):
+    """从 Systemd 获取内存、CPU 等指标。"""
+    try:
+        out = subprocess.run(["systemctl", "--user", "show", service_name, "-p", "ActiveState", "-p", "MemoryCurrent", "-p", "ActiveEnterTimestamp", "-p", "CPUUsageNSec"], capture_output=True, text=True).stdout
+        metrics = {}
+        for line in out.strip().split('\n'):
+            if '=' in line:
+                k, v = line.split('=', 1)
+                metrics[k] = v
+        
+        mem_bytes = int(metrics.get('MemoryCurrent', '0'))
+        if mem_bytes == 18446744073709551615: mem_mb = 0
+        else: mem_mb = mem_bytes / (1024 * 1024)
+            
+        return {
+            'state': metrics.get('ActiveState', 'unknown'),
+            'mem': mem_mb,
+            'uptime': metrics.get('ActiveEnterTimestamp', 'N/A')
+        }
+    except:
+        return {'state': 'error', 'mem': 0, 'uptime': 'N/A'}
+
+def parse_config(profile):
+    """解析配置文件提取模型和渠道。"""
+    path = "/home/imovation/.openclaw/openclaw.json" if profile in ["default", "main"] else f"/home/imovation/.openclaw-{profile}/openclaw.json"
+    if not os.path.exists(path): return "N/A", "none"
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+            model = data.get('agents', {}).get('defaults', {}).get('model', {}).get('primary', 'default')
+            
+            channels = []
+            ch_data = data.get('channels', {})
+            for ch, cfg in ch_data.items():
+                if isinstance(cfg, dict) and cfg.get('enabled'):
+                    channels.append(ch)
+            
+            plugin_root = data.get('plugins', {}).get('entries', {})
+            if not plugin_root: plugin_root = data.get('extensions', {})
+            
+            for p, cfg in plugin_root.items():
+                if isinstance(cfg, dict) and cfg.get('enabled'):
+                    p_name = p.replace('openclaw-', '')
+                    if p_name not in channels: channels.append(p_name)
+                        
+            return model, (",".join(channels) if channels else "none")
+    except: return "error", "error"
+
+def main():
+    desired_pods = {}
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            config = yaml.safe_load(f)
+            for pod in config.get('pods', []):
+                desired_pods[pod['name']] = pod
+
+    services_out = subprocess.run(["systemctl", "--user", "list-units", "openclaw-gateway*", "--all", "--no-legend"], capture_output=True, text=True).stdout
+    actual_services = {}
+    for line in services_out.split('\n'):
+        if not line.strip(): continue
+        svc = line.split()[0].replace(".service", "")
+        profile = "default" if svc == "openclaw-gateway" else svc.replace("openclaw-gateway-", "")
+        name = "main" if profile == "default" else profile
+        actual_services[name] = {"service": svc, "profile": profile}
+
+    header = f"{BOLD}%-12s %-10s %-8s %-10s %-12s %-25s %-15s %-10s{NC}" % (
+        "实例 (POD)", "状态", "端口", "内存占用", "运行时间", "主用模型", "生效渠道", "同步状态"
+    )
+    print(header)
+    print("-" * 115)
+
+    all_names = sorted(set(list(desired_pods.keys()) + list(actual_services.keys())))
+
+    for name in all_names:
+        desired = desired_pods.get(name)
+        actual = actual_services.get(name)
+        
+        status_str = f"{RED}已离线{NC}"
+        port, mem_str, uptime, model, channels, sync_str = "N/A", "0 MB", "N/A", "N/A", "none", f"{RED}配置缺失{NC}"
+        
+        if actual:
+            metrics = get_service_metrics(f"{actual['service']}.service")
+            if metrics['state'] == 'active': status_str = f"{GREEN}运行中{NC}"
+            else: status_str = f"{YELLOW}{metrics['state']}{NC}"
+            
+            mem_str = f"{metrics['mem']:.1f} MB"
+            uptime = " ".join(metrics['uptime'].split()[1:3]) if " " in metrics['uptime'] else "N/A"
+            model, channels = parse_config(actual['profile'])
+            
+            port_out = subprocess.run(["systemctl", "--user", "show", "-p", "ExecStart", f"{actual['service']}.service"], capture_output=True, text=True).stdout
+            m = re.search(r'--port\s+(\d+)', port_out)
+            port = m.group(1) if m else (str(desired['port']) if desired else "18789")
+
+            if desired:
+                sync_str = f"{GREEN}已同步{NC}"
+                if str(desired['port']) != port: sync_str = f"{YELLOW}配置漂移{NC}"
+            else:
+                sync_str = f"{CYAN}未纳管(Orphan){NC}"
+        
+        print("%-12s %-10s %-8s %-10s %-12s %-25s %-15s %-10s" % (
+            f"{BOLD}{name}{NC}" if desired else name,
+            status_str, port, mem_str, uptime, model[:24], channels[:14], sync_str
+        ))
+
+if __name__ == "__main__":
+    main()

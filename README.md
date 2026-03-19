@@ -1,52 +1,51 @@
-# 🐝 Claw-Swarm: OpenClaw 集群编排底座
+# 🐝 Claw-Swarm: OpenClaw 集群编排底座 (Claw-Kubernetes)
 
 ## 🌟 项目愿景 (Vision)
-`claw-swarm` 旨在为 OpenClaw 实例提供类似于 **Kubernetes/Swarm** 的容器化编排能力。通过物理隔离的 `--profile` 机制，将每一个 OpenClaw 实例视为一个独立的 **Pod (蜂穴)**，实现多用户、多渠道（飞书/命令行/ACP）的 100% 逻辑与进程隔离。
+`claw-swarm` 旨在为 OpenClaw 实例提供类似于 **Kubernetes/Swarm** 的容器化编排能力。通过“声明式意图 (Declarative Intent)”和“物理隔离 Pod (Pod Isolation)”机制，实现多用户、多场景的 100% 逻辑与进程隔离。
 
 ---
 
-## 📖 面向使用者 (User Guide)
+## 🏗️ 核心架构：声明式编排 (Declarative Orchestration)
 
-如果你是这个集群的**普通用户**（如朋友 Aimee），你通常通过以下方式接入：
+本项目遵循 **《项目基本宪法》** (CONSTITUTION.md)，采用“期望状态 (Desired State)”驱动模式：
 
-### 1. 接入渠道 (Access Channels)
-*   **飞书 (Feishu/Lark)**：直接在飞书搜索对应的机器人名称即可开始对话。
-*   **网页控制台 (Web UI)**：访问 `http://<服务器IP>:18780/?token=666666` (以 Aimee 实例为例)。
-*   **命令行 (TUI)**：如果您有服务器 SSH 权限，运行：
-    ```bash
-    openclaw --profile aimee tui --token 666666
-    ```
+### 1. 唯一真理来源：`swarm.yaml`
+所有的实例配置（端口、令牌、隔离模式）均在根目录下的 `swarm.yaml` 中定义。
 
-### 2. 隔离特性 (Isolation)
-*   你的对话记忆、文件、设置与主实例及其他用户**完全独立**。
-*   你的机器人崩溃或重启，不会影响其他人的机器人。
+### 2. 核心控制链 (Control Plane)
+- **`bin/claw-apply`**：控制器 (Controller)。对比 `swarm.yaml` 与物理现状，自动执行同步补齐。
+- **`bin/clawctl`**：执行器 (Actuator)。负责创建 Pod 目录、注入 **Virtual Home (虚拟家目录)** 环境变量，并生成 Systemd 用户服务。
+- **`bin/claw-status`**：看板 (Dashboard)。实时监控各 Pod 的状态、内存占用、主用模型及同步健康度。
 
 ---
 
-## 🛠️ 面向开发者/管理员 (Developer & Ops Guide)
+## 🛠️ 管理指南 (Admin Guide)
 
-如果你是集群的**编排者**，请阅读以下内容：
-
-### 1. 快速孵化新实例 (Provisioning)
-使用内置的编排脚本 `./bin/clawctl`。例如，为新朋友 Bob 创建一个实例：
+### 1. 同步配置
+修改 `swarm.yaml` 后，运行以下命令一键生效：
 ```bash
-./bin/clawctl bob 18781 my-secure-token-888
+./bin/claw-apply
 ```
-**脚本会自动完成：**
-- 创建 `~/.openclaw-bob/` 隔离目录。
-- 物理拷贝 `openclaw-lark` 插件副本（断绝依赖污染）。
-- 自动生成并启用 Systemd 用户服务 `openclaw-bob.service`。
-- 强制统一 HTTP 与 WebSocket 端口，设置独立 Token。
 
-### 2. 实例管理 (Lifecycle)
-所有管理工具位于 `bin/` 目录下：
-- **查看状态**：`systemctl --user status "openclaw-*"`
-- **热改端口**：`./bin/claw-port aimee 18888`
-- **一键修复**：`./bin/claw-repair aimee`
-- **彻底删除**：`./bin/claw-rm aimee`
+### 2. 查看集群状态
+```bash
+./bin/claw-status
+```
 
-### 3. 架构规范 (Specs)
-请务必阅读 [ARCHITECTURE.md](docs/ARCHITECTURE.md) 以了解底层逻辑。
+### 3. 进入实例终端 (TUI)
+```bash
+./bin/claw-tui <实例名>
+```
+此工具会自动读取 Token 并注入隔离的环境变量。
 
-### 4. 演进路线 (Roadmap)
-查看 [ROADMAP.md](docs/ROADMAP.md) 了解 Phase 1-4 计划。
+### 4. 隔离特性 (Isolation)
+- **进程隔离**：每个 Pod 运行为独立的 Systemd User Service (`openclaw-gateway-<name>.service`)。
+- **环境隔离**：每个 Pod 拥有独立的 `TMPDIR`、`XDG_CONFIG_HOME` 和浏览器数据目录，彻底杜绝资源竞争。
+- **依赖隔离**：插件采用物理拷贝模式，确保实例间互不干扰。
+
+---
+
+## 📖 开发者文档
+- [项目基本宪法](CONSTITUTION.md)
+- [底层架构详述](docs/ARCHITECTURE.md)
+- [演进路线图](docs/ROADMAP.md)

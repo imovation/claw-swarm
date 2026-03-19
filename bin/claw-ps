@@ -1,20 +1,14 @@
 #!/bin/bash
-# claw-swarm: Enhanced Process Status Monitor
+# claw-swarm: Precise Process Status Monitor
 set -e
 
-# 颜色定义
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
-
-# 表格头 (增加 MODEL 和 CHANNELS)
-printf "%-12s %-10s %-8s %-12s %-25s %-15s\n" "INSTANCE" "STATUS" "PORT" "UPTIME" "MODEL" "CHANNELS"
+# 表格头
+printf "%-12s %-8s %-8s %-25s %-12s %-20s\n" "INSTANCE" "STATUS" "PORT" "MODEL" "CHANNELS" "PLUGINS"
 echo "------------------------------------------------------------------------------------------------------------------------"
 
-# 获取所有 openclaw-gateway* 服务
 services=$(systemctl --user list-units "openclaw-gateway*" --all --no-legend | awk '{print $1}')
 
 for service in $services; do
-    # 提取实例名
     if [ "$service" == "openclaw-gateway.service" ]; then
         name="main"
         config_file="/home/imovation/.openclaw/openclaw.json"
@@ -23,34 +17,28 @@ for service in $services; do
         config_file="/home/imovation/.openclaw-$name/openclaw.json"
     fi
     
-    # 获取运行状态
     status=$(systemctl --user is-active $service || echo "inactive")
-    
-    # 默认值
     model="N/A"
-    channels="none"
+    msg_channels="none"
+    active_plugins="none"
     port="N/A"
-    uptime_short="N/A"
 
     if [ "$status" == "active" ]; then
-        # 获取端口
-        port=$(systemctl --user show -p ExecStart $service | sed -n 's/.*--port \([0-9]*\).*/\1/p' || echo "")
-        [ -z "$port" ] && port="18789"
+        port=$(systemctl --user show -p ExecStart $service | sed -n 's/.*--port \([0-9]*\).*/\1/p' || echo "18789")
         
-        # 获取 Uptime
-        uptime=$(systemctl --user show -p ActiveEnterTimestamp $service | cut -d= -f2)
-        uptime_short=$(echo $uptime | awk '{print $2 " " $3}')
-
-        # 提取配置信息 (使用 grep/sed 快速解析 JSON)
         if [ -f "$config_file" ]; then
-            # 提取主要模型 (agents.defaults.model.primary)
+            # 1. 提取模型
             model=$(grep -oP '"primary":\s*"\K[^"]+' "$config_file" | head -n 1 || echo "default")
-            # 提取已开启的渠道 (查找 enabled: true 的父键名)
-            channels=$(grep -B 1 '"enabled":\s*true' "$config_file" | grep -oP '"\K[^"]+(?=":\s*\{)' | tr '\n' ',' | sed 's/,$//' || echo "none")
-            [ -z "$channels" ] && channels="none"
+            
+            # 2. 提取消息通道 (提取 channels 块直至第一个关闭括号)
+            msg_channels=$(sed -n '/"channels": {/,/^  }/p' "$config_file" | grep -B 1 '"enabled":\s*true' | grep -oP '"\K[^"]+(?=":\s*\{)' | tr '\n' ',' | sed 's/,$//')
+            [ -z "$msg_channels" ] && msg_channels="none"
+
+            # 3. 提取核心插件 (提取 plugins 块直至第一个关闭括号)
+            active_plugins=$(sed -n '/"plugins": {/,/^  }/p' "$config_file" | grep -B 1 '"enabled":\s*true' | grep -oP '"\K[^"]+(?=":\s*\{)' | tr '\n' ',' | sed 's/,$//')
+            [ -z "$active_plugins" ] && active_plugins="none"
         fi
     fi
 
-    # 格式化输出
-    printf "%-12s %-10s %-8s %-12s %-25s %-15s\n" "$name" "$status" "$port" "$uptime_short" "${model:0:24}" "$channels"
+    printf "%-12s %-8s %-8s %-25s %-12s %-20s\n" "$name" "$status" "$port" "${model:0:24}" "$msg_channels" "$active_plugins"
 done

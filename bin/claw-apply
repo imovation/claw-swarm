@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+import os
+import yaml
+import subprocess
+import sys
+
+CONFIG_FILE = "/home/imovation/claw-swarm/swarm.yaml"
+BIN_DIR = "/home/imovation/claw-swarm/bin"
+
+def run_command(cmd):
+    """运行命令并实时输出至终端。"""
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+def apply_pod(pod_config):
+    name = pod_config['name']
+    profile = pod_config.get('profile', name)
+    port = pod_config['port']
+    token = pod_config['token']
+    browser_mode = pod_config.get('resources', {}).get('browser', 'dedicated')
+    
+    print(f"\n🚀 正在调谐 (Reconciling) 实例: {name} (Profile: {profile}, 端口: {port})...")
+    
+    cmd = [os.path.join(BIN_DIR, "clawctl"), profile, str(port), token, browser_mode]
+    if run_command(cmd):
+        print(f"   [实例 {name}] ✅ 同步成功。")
+    else:
+        print(f"   [实例 {name}] ❌ 同步失败。")
+    sys.stdout.flush()
+
+def main():
+    if not os.path.exists(CONFIG_FILE):
+        print(f"❌ 错误: 找不到配置文件 {CONFIG_FILE}。")
+        sys.exit(1)
+
+    with open(CONFIG_FILE, 'r') as f:
+        config = yaml.safe_load(f)
+
+    pods = config.get('pods', [])
+    
+    for pod in pods:
+        apply_pod(pod)
+
+    print("\n" + "="*30 + " 🐝 集群最终状态看板 " + "="*30)
+    sys.stdout.flush()
+    subprocess.run([os.path.join(BIN_DIR, "claw-status")])
+
+if __name__ == "__main__":
+    main()

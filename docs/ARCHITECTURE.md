@@ -1,43 +1,56 @@
-# Claw Kubernetes: Dual-Instance Decoupled Architecture
+# Claw Kubernetes: 声明式解耦架构 (v1.5)
 
-This document outlines the foundational architecture for the `claw-swarm` project—a system to horizontally scale and orchestrate isolated OpenClaw instances.
+本文阐述了 `claw-swarm` 项目的底层设计模式。
 
-## 1. Core Paradigm: The "Pod"
-Every OpenClaw instance runs as an isolated "Pod" defined by a `--profile <name>`.
-This ensures:
-- **State Isolation**: Dedicated `~/.openclaw-<name>/` directories (SQLite, history, memory).
-- **Network Isolation**: Dedicated Gateway WebSocket ports.
-- **Dependency Isolation**: Independent `extensions/` directories (NO symlinks).
-- **Process Isolation**: Dedicated Systemd User Services (`openclaw-<name>.service`).
+## 1. 核心范式：Pod (蜂穴) 隔离
+每个 OpenClaw 实例被视为一个完全隔离的“Pod”。
+- **状态隔离**：独立 `~/.openclaw-<name>/` 目录。
+- **环境隔离 (Virtual Home)**：强制注入 `XDG_*` 变量和专属浏览器路径，锁定软件的所有读写行为到 Pod 内部。
+- **依赖隔离**：物理拷贝插件，杜绝符号链接导致的污染。
+- **进程隔离**：封装为 Systemd User Services (`openclaw-gateway-<name>.service`)。
 
-## 2. Directory & Topology Layout
+## 2. 声明式配置模型 (Declarative Model)
+本项目受 Kubernetes 启发，采用“期望状态”驱动逻辑。
+
+### 目录与拓扑布局
 ```text
 /home/imovation/
- ├── .openclaw/                  # Node 0 (Host Local/Default Profile)
- │    ├── openclaw.json          # plugins.allow=[] (No Lark)
- │    ├── workspace/             # Host's local agents/skills
- │    └── extensions/            # Main plugins (isolated)
+ ├── .openclaw/                  # Pod: main (Default Profile)
+ │    ├── runtime/               # Virtual Home: tmp, config, cache, data, browser
+ │    └── openclaw.json          
  │
- ├── .openclaw-aimee/            # Node 1 (Aimee Profile)
- │    ├── openclaw.json          # Port: 18780, Token: 666666
- │    ├── workspace/             # Aimee's specialized workspace
- │    └── extensions/
- │         └── openclaw-lark/    # Hard copy of the Lark plugin
+ ├── .openclaw-aimee/            # Pod: aimee
+ │    ├── runtime/               # Virtual Home (XDG/Puppeteer Isolated)
+ │    └── openclaw.json          
  │
- └── claw-swarm/            # Control Plane
-      ├── clawctl.sh             # The provisioning script
-      └── ARCHITECTURE.md        # This doc
+ └── claw-swarm/            # 控制平面 (Control Plane)
+      ├── swarm.yaml             # 意图定义 (Desired State)
+      ├── CONSTITUTION.md        # 项目基本宪法
+      └── bin/
+           ├── claw-apply        # 控制器 (Controller/Reconciler)
+           ├── clawctl           # 供应执行器 (Provisioner/Actuator)
+           ├── claw-status       # 实时监控看板 (Dashboard)
+           └── claw-rm           # 实例销毁工具
 ```
 
-## 3. The `clawctl.sh` Provisioner
-The provisioner script automates the creation of a new "Pod". It performs:
-1. `openclaw --profile <name> setup`
-2. Creates the workspace folder and points `agents.defaults.workspace` to it.
-3. Sets a unique port and auth token.
-4. Copies the Lark extension template into the new profile.
-5. Generates the `openclaw-<name>.service` unit and enables it.
+## 3. 隔离全家桶：Virtual Home (虚拟家目录)
+为了解决 OS 级冲突（如浏览器、缓存、临时文件），`clawctl` 为每个 Pod 注入了以下环境变量：
+- `TMPDIR=$DIR/runtime/tmp`
+- `XDG_CONFIG_HOME=$DIR/runtime/config`
+- `XDG_CACHE_HOME=$DIR/runtime/cache`
+- `XDG_DATA_HOME=$DIR/runtime/data`
+- `PUPPETEER_USER_DATA_DIR=$DIR/runtime/browser` (模式为 dedicated 时)
 
-## 4. Key Learnings (The "Gotchas")
-- **Plugin Validation**: Disabling plugins requires `plugins.allow="[]"` (JSON array), not a string.
-- **Dependency Hell**: Symlinking `extensions/` from the main profile causes failures if the main profile updates/removes plugins. **Always hard copy** plugins to the new profile.
-- **Systemd Variables**: Always inject `Environment=OPENCLAW_PROFILE=<name>` into the Systemd service file to prevent implicit bash/environment crossover.
+## 4. 幂等同步逻辑 (Reconciliation Loop)
+`claw-apply` 的核心逻辑：
+1. **读取意图**：解析 `swarm.yaml`。
+2. **感知现状**：通过 `systemctl` 探测正在运行的服务。
+3. **调和补齐**：
+   - 发现新定义的 Pod -> 调用 `clawctl` 创建。
+   - 发现已有配置差异 -> 调用 `clawctl` 滚动重载。
+   - 发现孤儿 Pod (Orphan) -> 发出人工清理警告。
+
+## 5. 关键经验与防坑指南
+- **插件拷贝**：禁止使用 `ln -s`。
+- **环境变量注入**：必须注入 `OPENCLAW_PROFILE`, `OPENCLAW_STATE_DIR`, `OPENCLAW_CONFIG_PATH` 显式覆盖。
+- **缓冲区刷新**：在 `claw-apply` 中显式调用 `sys.stdout.flush()` 以保证多语言脚本混合输出的顺序正确性。
