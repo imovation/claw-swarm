@@ -6,12 +6,16 @@ set -e
 printf "%-20s %-10s %-8s %-12s %-8s %-10s\n" "INSTANCE" "STATUS" "PORT" "UPTIME" "CPU" "MEMORY"
 echo "---------------------------------------------------------------------------------------"
 
-# 获取所有 openclaw-* 服务
-services=$(systemctl --user list-units "openclaw-*" --all --no-legend | awk '{print $1}')
+# 获取所有 openclaw-gateway* 服务
+services=$(systemctl --user list-units "openclaw-gateway*" --all --no-legend | awk '{print $1}')
 
 for service in $services; do
-    # 提取实例名
-    name=$(echo $service | sed 's/openclaw-//; s/.service//')
+    # 提取实例名 (处理 openclaw-gateway.service 和 openclaw-gateway-name.service)
+    if [ "$service" == "openclaw-gateway.service" ]; then
+        name="main"
+    else
+        name=$(echo $service | sed 's/openclaw-gateway-//; s/.service//')
+    fi
     
     # 获取运行状态
     status=$(systemctl --user is-active $service || echo "inactive")

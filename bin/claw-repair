@@ -8,14 +8,39 @@ if [ -z "$PROFILE" ]; then
     exit 1
 fi
 
-SERVICE_DIR="/home/imovation/.config/systemd/user"
-SERVICE="$SERVICE_DIR/openclaw-$PROFILE.service"
-[ "$PROFILE" == "gateway" ] && SERVICE="$SERVICE_DIR/openclaw-gateway.service"
+SERVICE_NAME="openclaw-gateway-$PROFILE"
+[ "$PROFILE" == "gateway" ] && SERVICE_NAME="openclaw-gateway"
+SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
+...
+# 删除旧的隔离变量并重新注入
+sed -i "/Environment=OPENCLAW_STATE_DIR/d" "$SERVICE"
+sed -i "/Environment=OPENCLAW_CONFIG_PATH/d" "$SERVICE"
+sed -i "/Environment=OPENCLAW_SYSTEMD_UNIT/d" "$SERVICE"
+sed -i "/\[Service\]/a Environment=OPENCLAW_SYSTEMD_UNIT=$SERVICE_NAME.service" "$SERVICE"
+sed -i "/\[Service\]/a Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json" "$SERVICE"
+sed -i "/\[Service\]/a Environment=OPENCLAW_STATE_DIR=$DIR" "$SERVICE"
 
-if [ ! -f "$SERVICE" ]; then
-    echo "❌ Error: Service for '$PROFILE' not found at $SERVICE"
-    exit 1
+# 修正启动命令
+if [ "$PROFILE" == "gateway" ]; then
+    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js gateway run --port 18789|" "$SERVICE"
+else
+    # 强制从配置文件提取端口，并在命令行显式指定以统一 HTTP/WS 端口
+    PORT=$(grep -oP '"port":\s*\K[0-9]+' "$DIR/openclaw.json" || echo "18780")
+    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE gateway run --port $PORT|" "$SERVICE"
 fi
+...
+echo "♻️  [2/3] Reloading Systemd and Restarting..."
+systemctl --user daemon-reload
+systemctl --user restart "$SERVICE_NAME.service"
+
+echo "🩺 [3/3] Health Check..."
+sleep 3
+if systemctl --user is-active "$SERVICE_NAME.service" > /dev/null; then
+    echo "✅ Pod '$PROFILE' repaired and running successfully."
+else
+    echo "⚠️  Pod '$PROFILE' still has issues. Check logs: journalctl --user -u $SERVICE_NAME.service"
+fi
+
 
 echo "🔧 [1/3] Repairing Systemd Unit for $PROFILE..."
 # 修复 PATH

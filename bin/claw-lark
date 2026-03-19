@@ -1,0 +1,72 @@
+#!/bin/bash
+# claw-swarm: Feishu/Lark Bot Integration Script (V8 - Instant ASCII QR)
+set -e
+
+# Styles
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: ./bin/claw-lark <PROFILE_NAME> [APP_ID] [APP_SECRET]"
+  exit 1
+fi
+
+PROFILE=$1
+APP_ID=$2
+APP_SECRET=$3
+DIR="/home/imovation/.openclaw-$PROFILE"
+CONFIG="$DIR/openclaw.json"
+
+if [ ! -d "$DIR" ]; then echo "❌ Error: Profile '$PROFILE' not found."; exit 1; fi
+
+# Step 1: Interactive Official Onboarding with Instant QR
+if [ -z "$APP_ID" ]; then
+  echo -e "${BOLD}--- OpenClaw 飞书插件一键安装向导 ---${NC}"
+  echo ""
+  
+  QUICK_CREATE_URL="https://open.feishu.cn/app?lang=zh-CN&from=openclaw_swarm"
+  
+  echo -e "${YELLOW}👉 请使用手机飞书扫描下方二维码，一键创建应用：${NC}"
+  echo ""
+
+  # 终极方案：利用 qrenco.de 在线服务直接输出 ASCII 二维码
+  # 如果网络不通，则平滑降级显示链接
+  curl -L -s "qrenco.de/$QUICK_CREATE_URL" || echo -e "  ${BLUE}${BOLD}>> $QUICK_CREATE_URL <<${NC}"
+
+  echo ""
+  echo -e "${GREEN}1. 手机扫码或点击上方链接创建应用${NC}"
+  echo -e "${GREEN}2. 应用名称请设为: ${BOLD}$PROFILE-Bot${NC}"
+  echo "3. 在“凭证与基础信息”获取 App ID 和 Secret"
+  echo "-------------------------------------------------------"
+  read -p "请输入 App ID: " APP_ID
+  read -p "请输入 App Secret: " APP_SECRET
+fi
+
+# Apply Config
+echo -e "🚀 [1/2] ${GREEN}Applying Official Config Rules...${NC}"
+openclaw --profile "$PROFILE" config set channels.feishu.enabled true
+openclaw --profile "$PROFILE" config set channels.feishu.appId "$APP_ID"
+openclaw --profile "$PROFILE" config set channels.feishu.appSecret "$APP_SECRET"
+openclaw --profile "$PROFILE" config set channels.feishu.dmPolicy "open"
+openclaw --profile "$PROFILE" config set channels.feishu.allowFrom "[\"*\"]"
+for tool in doc wiki drive bitable calendar task; do openclaw --profile "$PROFILE" config set channels.feishu.tools.$tool true; done
+
+# Model Adaptation
+node -e "
+const fs = require('fs');
+const path = '$CONFIG';
+const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+if (config.models && config.models.providers) {
+    Object.values(config.models.providers).forEach(p => { if (p.models) p.models.forEach(m => m.contextWindow = 128000); });
+}
+config.agents = config.agents || {};
+config.agents.defaults = config.agents.defaults || {};
+config.agents.defaults.model = config.agents.defaults.model || { primary: 'custom-api-scnet-cn/MiniMax-M2.5' };
+fs.writeFileSync(path, JSON.stringify(config, null, 2));
+"
+
+systemctl --user restart "openclaw-$PROFILE.service"
+echo -e "${GREEN}✅ '$PROFILE' 实例配置成功！请在飞书测试。${NC}"

@@ -10,12 +10,14 @@ fi
 
 PROFILE=$1
 DIR="/home/imovation/.openclaw-$PROFILE"
-SERVICE="/home/imovation/.config/systemd/user/openclaw-$PROFILE.service"
+SERVICE_NAME="openclaw-gateway-$PROFILE"
+[ "$PROFILE" == "gateway" ] && SERVICE_NAME="openclaw-gateway"
+SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
 
 echo "🗑️  [1/3] Stopping and Disabling Pod: $PROFILE..."
-if systemctl --user list-units --all | grep -q "openclaw-$PROFILE.service"; then
-    systemctl --user stop "openclaw-$PROFILE.service" || true
-    systemctl --user disable "openclaw-$PROFILE.service" || true
+if systemctl --user list-units --all | grep -q "$SERVICE_NAME.service"; then
+    systemctl --user stop "$SERVICE_NAME.service" || true
+    systemctl --user disable "$SERVICE_NAME.service" || true
 fi
 
 echo "🧹 [2/3] Removing Systemd Service File..."

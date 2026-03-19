@@ -24,7 +24,11 @@ All management scripts are located in the `bin/` directory.
   ```
 - **Check Status**:
   ```bash
-  systemctl --user list-units "openclaw-*"
+  systemctl --user list-units "openclaw-gateway*"
+  ```
+  Or use the built-in monitor:
+  ```bash
+  ./bin/claw-ps
   ```
 
 ## 📐 Code Style & Architecture Guidelines
@@ -33,6 +37,7 @@ All management scripts are located in the `bin/` directory.
 - **100% Logical Isolation**: Each profile MUST have its own dedicated directory (`~/.openclaw-<NAME>`).
 - **Dependency Isolation**: NEVER symlink `extensions/`. ALWAYS hard copy (`cp -r`) plugins.
 - **Port Unification**: Use the `--port` flag in `ExecStart` to ensure HTTP and WebSocket use the same port.
+- **Naming Standard**: Service units MUST follow the pattern `openclaw-gateway-<name>.service` to align with native OpenClaw logic.
 
 ### 2. Systemd Standards
 - **User Mode**: Deploy as Systemd User Units (`~/.config/systemd/user/`).
