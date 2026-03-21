@@ -1,34 +1,37 @@
 #!/bin/bash
-# claw-swarm: Remover Script (Like kubectl delete pod <name>)
-set -e
+# bin/claw-rm — 删除 Pod（类 kubectl delete pod <name>）
+# 使用共享库解决 profile 别名不一致问题
+set -euo pipefail
 
-if [ "$#" -lt 1 ]; then
-  echo "Usage: ./claw-rm.sh <PROFILE_NAME>"
-  echo "Example: ./claw-rm.sh bob"
-  exit 1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/pod_utils.sh
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+# ── 参数校验 ──────────────────────────────────────────────────────────────────
+if [ -z "${1:-}" ]; then
+    echo "用法: $(basename "$0") <PROFILE_NAME>"
+    echo "示例: $(basename "$0") bob"
+    exit 1
 fi
 
-PROFILE=$1
-DIR="/home/imovation/.openclaw-$PROFILE"
-SERVICE_NAME="openclaw-gateway-$PROFILE"
-[ "$PROFILE" == "gateway" ] && SERVICE_NAME="openclaw-gateway"
-SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
+resolve_pod "$1"
+# 现在我们有了导出的变量：$RESOLVED_PROFILE, $DIR, $SERVICE_NAME, $SERVICE
 
-echo "🗑️  [1/3] Stopping and Disabling Pod: $PROFILE..."
+echo "🗑️  [1/3] 正在停止并禁用 Pod: $1 ($SERVICE_NAME)..."
 if systemctl --user list-units --all | grep -q "$SERVICE_NAME.service"; then
     systemctl --user stop "$SERVICE_NAME.service" || true
     systemctl --user disable "$SERVICE_NAME.service" || true
 fi
 
-echo "🧹 [2/3] Removing Systemd Service File..."
+echo "🧹 [2/3] 正在移除 Systemd 服务文件..."
 if [ -f "$SERVICE" ]; then
     rm "$SERVICE"
     systemctl --user daemon-reload
 fi
 
-echo "📂 [3/3] Deleting Profile Directory: $DIR..."
+echo "📂 [3/3] 正在删除配置目录: $DIR..."
 if [ -d "$DIR" ]; then
     rm -rf "$DIR"
 fi
 
-echo "✅ Pod '$PROFILE' has been removed successfully."
+echo "✅ Pod '$1' 已成功删除。"

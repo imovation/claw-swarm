@@ -1,23 +1,28 @@
 kind: Swarm
 version: v1
+global:
+  proxy:
+    http: http://127.0.0.1:7897/
+    https: http://127.0.0.1:7897/
+    socks: socks://127.0.0.1:7897/
+    no_proxy: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
+  orphan_policy: delete
 pods:
-  - name: main
-    profile: default
-    port: 18789
-    token: "317939afcb24c15aa26a313932fb2f46b763200a63e7e08f"
-    resources:
-      browser: shared
-
-  - name: aimee
-    profile: aimee
-    port: 18881
-    token: "666666"
-    resources:
-      browser: dedicated
-
-  - name: shining
-    profile: shining
-    port: 18880
-    token: "Shining888888"
-    resources:
-      browser: dedicated
+- name: main
+  profile: default
+  port: 18789
+  token: 317939afcb24c15aa26a313932fb2f46b763200a63e7e08f
+  resources:
+    browser: shared
+- name: aimee
+  profile: aimee
+  port: 18881
+  token: 'aimee666666'
+  resources:
+    browser: dedicated
+- name: shining
+  profile: shining
+  port: 18880
+  token: shining66666
+  resources:
+    browser: dedicated

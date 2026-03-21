@@ -1,31 +1,34 @@
 #!/bin/bash
-# claw-swarm: 实例供应脚本 (类 kubectl apply)
-set -e
+# bin/clawctl — 声明式 Pod 供应脚本（类 kubectl apply）
+# 使用共享库 lib/pod_utils.sh 解决重复逻辑，实现声明式开发模式
+set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/pod_utils.sh
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+# ── 参数校验 ──────────────────────────────────────────────────────────────────
 if [ "$#" -lt 3 ]; then
-  echo "用法: ./clawctl <实例名> <端口> <令牌> [浏览器模式]"
-  echo "示例: ./clawctl bob 18781 mysecuretoken dedicated"
-  exit 1
+    echo "用法: $(basename "$0") <PROFILE_NAME> <PORT> <TOKEN> [浏览器模式]"
+    echo "示例: $(basename "$0") bob 18781 mysecuretoken dedicated"
+    exit 1
 fi
 
-PROFILE=$1
-PORT=$2
-TOKEN=$3
+# 使用 resolve_pod 统一处理 profile 别名
+# 注意：我们需要保留原始的 $1 用于判断 dedicated 模式，但使用解析后的 profile 用于目录和服务名
+PROFILE_INPUT="$1"
+PORT="$2"
+TOKEN="$3"
 BROWSER_MODE=${4:-dedicated}
 
-# 确定目录和逻辑名称
-if [ "$PROFILE" == "default" ] || [ "$PROFILE" == "main" ]; then
-    DIR="/home/imovation/.openclaw"
-    SERVICE_NAME="openclaw-gateway"
-    PROFILE_ARG="default"
-else
-    DIR="/home/imovation/.openclaw-$PROFILE"
-    SERVICE_NAME="openclaw-gateway-$PROFILE"
-    PROFILE_ARG="$PROFILE"
-fi
-SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
+# 解析 profile，得到标准化后的路径和服务名变量
+resolve_pod "$PROFILE_INPUT"
+# 现在可以使用导出的变量：$RESOLVED_PROFILE, $DIR, $SERVICE_NAME, $SERVICE
+# 其中 $RESOLVED_PROFILE 用于传递给 openclaw 的 --profile 参数
 
-# 如果服务正在运行，先停止 (用于平滑更新)
+echo "🚀 正在供应 Pod: $PROFILE_INPUT (规范为 $RESOLVED_PROFILE, 端口: $PORT, 浏览器: $BROWSER_MODE)..."
+
+# 如果服务正在运行，先停止（用于平滑更新）
 if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
     echo "⏸️  [0/5] 正在停止旧实例 '$SERVICE_NAME'..."
     systemctl --user stop "$SERVICE_NAME.service"
@@ -41,20 +44,25 @@ fi
 
 # 确保基本的 openclaw.json 存在
 if [ ! -f "$DIR/openclaw.json" ]; then
-    echo "正在为 $PROFILE 创建初始配置文件..."
+    echo "正在为 $PROFILE_INPUT 创建初始配置文件..."
     echo '{"agents":{"defaults":{"workspace":"./workspace"}},"mode":"token","token":"'$TOKEN'"}' > "$DIR/openclaw.json"
 fi
 
 echo "🔧 [3/5] 正在生成 Systemd 用户服务 (注入隔离环境变量)..."
+
+# 动态解析 Node 和 OpenClaw 路径（避免硬编码版本号）
+NODE_BIN=$(get_node_binary)
+OPENCLAW_BIN=$(get_openclaw_binary)
+
 cat << SYSTEMD_EOF > "$SERVICE"
 [Unit]
-Description=OpenClaw Gateway (profile: $PROFILE, claw-swarm managed)
+Description=OpenClaw Gateway (profile: $RESOLVED_PROFILE, claw-swarm managed)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 WorkingDirectory=$DIR
-ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE_ARG gateway run --port $PORT
+ExecStart=$NODE_BIN $OPENCLAW_BIN --profile $RESOLVED_PROFILE gateway run --port $PORT
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
@@ -66,7 +74,7 @@ KillMode=control-group
 Environment=HOME=/home/imovation
 Environment=PATH=/home/imovation/.nvm/versions/node/v24.14.0/bin:/home/imovation/.local/bin:/home/imovation/.npm-global/bin:/home/imovation/bin:/home/imovation/.volta/bin:/home/imovation/.asdf/shims:/home/imovation/.bun/bin:/home/imovation/.fnm/current/bin:/home/imovation/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin
 
-# 代理配置
+# 代理配置（将从全局配置读取，此处暂保留硬编码待后续完善）
 Environment=HTTP_PROXY=http://127.0.0.1:7897/
 Environment=HTTPS_PROXY=http://127.0.0.1:7897/
 Environment=NO_PROXY=localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
@@ -80,7 +88,7 @@ Environment=all_proxy=socks://127.0.0.1:7897/
 Environment=OPENCLAW_SYSTEMD_UNIT=$SERVICE_NAME.service
 Environment=OPENCLAW_SERVICE_MARKER=openclaw
 Environment=OPENCLAW_SERVICE_KIND=gateway
-Environment=OPENCLAW_PROFILE=$PROFILE_ARG
+Environment=OPENCLAW_PROFILE=$RESOLVED_PROFILE
 Environment=OPENCLAW_STATE_DIR=$DIR
 Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json
 
@@ -103,10 +111,9 @@ WantedBy=default.target
 SYSTEMD_FOOTER
 
 echo "⚡ [4/5] 正在重载 Systemd 并启动实例 Pod..."
-systemctl --user daemon-reload
-systemctl --user enable --now "$SERVICE_NAME.service"
+systemd_reload_restart "$SERVICE_NAME"
 
-echo "✅ 实例 '$PROFILE' 已成功部署至端口 $PORT!"
+echo "✅ 实例 '$PROFILE_INPUT' 已成功部署至端口 $PORT!"
 echo "   物理路径: $DIR"
 echo "   浏览器隔离: $BROWSER_MODE"
 echo "   查看日志: journalctl --user -fu $SERVICE_NAME.service"

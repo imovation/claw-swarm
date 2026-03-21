@@ -1,89 +1,74 @@
 #!/bin/bash
-# claw-swarm: Repair Script (Fixes common profile/port/dependency issues)
-set -e
+# bin/claw-repair — 手术式修复现有服务文件（类 kubectl replace --force）
+# 适用场景：Pod 已存在但服务文件损坏、路径过时、环境变量缺失时的修复。
+# 正常流程请使用 claw-apply（全量调谐）。
+#
+# 用法:  ./claw-repair <PROFILE_NAME>
+# 示例:  ./claw-repair aimee
+#         ./claw-repair default     ← 主 Pod (等同于 main / gateway)
+set -euo pipefail
 
-PROFILE=$1
-if [ -z "$PROFILE" ]; then
-    echo "Usage: ./claw-repair.sh <PROFILE_NAME>"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/pod_utils.sh
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+# ── 参数校验 ──────────────────────────────────────────────────────────────────
+if [ -z "${1:-}" ]; then
+    echo "用法: $(basename "$0") <PROFILE_NAME>"
+    echo "示例: $(basename "$0") aimee"
     exit 1
 fi
 
-SERVICE_NAME="openclaw-gateway-$PROFILE"
-[ "$PROFILE" == "gateway" ] && SERVICE_NAME="openclaw-gateway"
-SERVICE="/home/imovation/.config/systemd/user/$SERVICE_NAME.service"
-...
-# 删除旧的隔离变量并重新注入
+resolve_pod "$1"
+# resolve_pod 已导出: $RESOLVED_PROFILE, $DIR, $SERVICE_NAME, $SERVICE
+
+echo "🔧 [1/3] 正在修复 Systemd 服务文件: $PROFILE ($SERVICE_NAME)..."
+
+# 检查服务文件是否存在
+if [ ! -f "$SERVICE" ]; then
+    echo "❌ 服务文件不存在: $SERVICE"
+    echo "   提示: 请先使用 claw-apply 或 clawctl 创建 Pod，再用 claw-repair 修复。"
+    exit 1
+fi
+
+# 1. 修复历史遗留的旧 Node.js 路径（nvm current → 动态解析真实版本）
+NODE_BIN=$(get_node_binary)
+NODE_DIR="$(dirname "$NODE_BIN")"
+sed -i "s|/home/imovation/.nvm/current/bin|$NODE_DIR|g" "$SERVICE"
+sed -i "s|/home/imovation/.nvm/versions/node/v[0-9.]*/bin|$NODE_DIR|g" "$SERVICE"
+
+OPENCLAW_BIN=$(get_openclaw_binary)
+sed -i "s|/home/imovation/.nvm/versions/node/v[0-9.]*/lib/node_modules/openclaw/dist/index.js|$OPENCLAW_BIN|g" "$SERVICE"
+
+# 2. 修正 ExecStart（确保使用 --profile 参数和 --port 端口统一）
+if [[ "$RESOLVED_PROFILE" == "default" ]]; then
+    # 主 Pod 无 --profile 参数
+    PORT_IN_SVC=$(grep -oP '(?<=--port )\d+' "$SERVICE" 2>/dev/null || echo "18789")
+    sed -i "s|ExecStart=.*|ExecStart=$NODE_BIN $OPENCLAW_BIN gateway run --port $PORT_IN_SVC|" "$SERVICE"
+else
+    # 其他 Pod 从服务文件或 openclaw.json 中获取端口
+    PORT_IN_SVC=$(grep -oP '(?<=--port )\d+' "$SERVICE" 2>/dev/null || \
+                  grep -oP '"port":\s*\K[0-9]+' "$DIR/openclaw.json" 2>/dev/null || \
+                  echo "18780")
+    sed -i "s|ExecStart=.*|ExecStart=$NODE_BIN $OPENCLAW_BIN --profile $RESOLVED_PROFILE gateway run --port $PORT_IN_SVC|" "$SERVICE"
+fi
+
+# 3. 删除旧的隔离变量并重新注入（确保路径正确）
 sed -i "/Environment=OPENCLAW_STATE_DIR/d" "$SERVICE"
 sed -i "/Environment=OPENCLAW_CONFIG_PATH/d" "$SERVICE"
 sed -i "/Environment=OPENCLAW_SYSTEMD_UNIT/d" "$SERVICE"
+# 在 [Service] 段之后插入，顺序：最后 sed /a 的行会出现在最前面，所以倒序写
+sed -i "/\[Service\]/a Environment=OPENCLAW_STATE_DIR=$DIR" "$SERVICE"
+sed -i "/\[Service\]/a Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json" "$SERVICE"
 sed -i "/\[Service\]/a Environment=OPENCLAW_SYSTEMD_UNIT=$SERVICE_NAME.service" "$SERVICE"
-sed -i "/\[Service\]/a Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json" "$SERVICE"
-sed -i "/\[Service\]/a Environment=OPENCLAW_STATE_DIR=$DIR" "$SERVICE"
 
-# 修正启动命令
-if [ "$PROFILE" == "gateway" ]; then
-    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js gateway run --port 18789|" "$SERVICE"
-else
-    # 强制从配置文件提取端口，并在命令行显式指定以统一 HTTP/WS 端口
-    PORT=$(grep -oP '"port":\s*\K[0-9]+' "$DIR/openclaw.json" || echo "18780")
-    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE gateway run --port $PORT|" "$SERVICE"
-fi
-...
-echo "♻️  [2/3] Reloading Systemd and Restarting..."
-systemctl --user daemon-reload
-systemctl --user restart "$SERVICE_NAME.service"
-
-echo "🩺 [3/3] Health Check..."
-sleep 3
-if systemctl --user is-active "$SERVICE_NAME.service" > /dev/null; then
-    echo "✅ Pod '$PROFILE' repaired and running successfully."
-else
-    echo "⚠️  Pod '$PROFILE' still has issues. Check logs: journalctl --user -u $SERVICE_NAME.service"
-fi
-
-
-echo "🔧 [1/3] Repairing Systemd Unit for $PROFILE..."
-# 修复 PATH
-sed -i "s|/home/imovation/.nvm/current/bin|/home/imovation/.nvm/versions/node/v24.14.0/bin|g" "$SERVICE"
-
-# 强行注入环境变量以确保物理隔离
-DIR="/home/imovation/.openclaw-$PROFILE"
-[ "$PROFILE" == "gateway" ] && DIR="/home/imovation/.openclaw"
-
-# 删除旧的隔离变量并重新注入
-sed -i "/Environment=OPENCLAW_STATE_DIR/d" "$SERVICE"
-sed -i "/Environment=OPENCLAW_CONFIG_PATH/d" "$SERVICE"
-sed -i "/\[Service\]/a Environment=OPENCLAW_CONFIG_PATH=$DIR/openclaw.json" "$SERVICE"
-sed -i "/\[Service\]/a Environment=OPENCLAW_STATE_DIR=$DIR" "$SERVICE"
-
-# 修正启动命令
-if [ "$PROFILE" == "gateway" ]; then
-    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js gateway run --port 18789|" "$SERVICE"
-else
-    # 强制从配置文件提取端口，并在命令行显式指定以统一 HTTP/WS 端口
-    PORT=$(grep -oP '"port":\s*\K[0-9]+' "$DIR/openclaw.json" || echo "18780")
-    sed -i "s|ExecStart=.*|ExecStart=/home/imovation/.nvm/versions/node/v24.14.0/bin/node /home/imovation/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js --profile $PROFILE gateway run --port $PORT|" "$SERVICE"
-fi
-
-
-# 确保有 WorkingDirectory
+# 4. 确保 WorkingDirectory 存在
 if ! grep -q "WorkingDirectory" "$SERVICE"; then
-    if [ "$PROFILE" == "gateway" ]; then
-        DIR="/home/imovation/.openclaw"
-    else
-        DIR="/home/imovation/.openclaw-$PROFILE"
-    fi
     sed -i "/\[Service\]/a WorkingDirectory=$DIR" "$SERVICE"
 fi
 
-echo "♻️  [2/3] Reloading Systemd and Restarting..."
-systemctl --user daemon-reload
-systemctl --user restart "openclaw-$PROFILE.service"
+echo "♻️  [2/3] 正在重载 Systemd 并重启实例..."
+systemd_reload_restart "$SERVICE_NAME"
 
-echo "🩺 [3/3] Health Check..."
-sleep 3
-if systemctl --user is-active "openclaw-$PROFILE.service" > /dev/null; then
-    echo "✅ Pod '$PROFILE' repaired and running successfully."
-else
-    echo "⚠️  Pod '$PROFILE' still has issues. Check logs: journalctl --user -u openclaw-$PROFILE.service"
-fi
+echo "🩺 [3/3] 正在执行健康检查..."
+pod_health_check "$SERVICE_NAME" "$1"
