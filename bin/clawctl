@@ -1,5 +1,5 @@
 #!/bin/bash
-# bin/clawctl — 声明式 Pod 供应脚本 (重构版：支持模板、插件与动态环境)
+# bin/clawctl — 声明式 Pod 供应脚本 (修复版：更新配置格式)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,8 +31,6 @@ fi
 
 # 3. 注入 EnvironmentFile (env 文件)
 ENV_FILE="$DIR/runtime/env"
-
-# 基础路径环境变量，动态解析 Node 路径
 NODE_BIN=$(get_node_binary)
 NODE_PATH=$(dirname "$NODE_BIN")
 
@@ -49,43 +47,55 @@ XDG_DATA_HOME=$DIR/runtime/data
 PATH=$NODE_PATH:/usr/local/bin:/usr/bin:/bin
 ENV_EOF
 
-# 注入浏览器隔离
 if [ "$BROWSER_MODE" == "dedicated" ]; then
     echo "PUPPETEER_USER_DATA_DIR=$DIR/runtime/browser" >> "$ENV_FILE"
 fi
 
-# 注入代理配置 (解析 JSON)
+# 注入代理
 if command -v jq >/dev/null 2>&1; then
     HTTP_P=$(echo "$PROXY_JSON" | jq -r '.http // empty')
     HTTPS_P=$(echo "$PROXY_JSON" | jq -r '.https // empty')
     SOCKS_P=$(echo "$PROXY_JSON" | jq -r '.socks // empty')
     NO_P=$(echo "$PROXY_JSON" | jq -r '.no_proxy // empty')
-
     [ -n "$HTTP_P" ] && echo "HTTP_PROXY=$HTTP_P" >> "$ENV_FILE" && echo "http_proxy=$HTTP_P" >> "$ENV_FILE"
     [ -n "$HTTPS_P" ] && echo "HTTPS_PROXY=$HTTPS_P" >> "$ENV_FILE" && echo "https_proxy=$HTTPS_P" >> "$ENV_FILE"
     [ -n "$SOCKS_P" ] && echo "ALL_PROXY=$SOCKS_P" >> "$ENV_FILE" && echo "all_proxy=$SOCKS_P" >> "$ENV_FILE"
     [ -n "$NO_P" ] && echo "NO_PROXY=$NO_P" >> "$ENV_FILE" && echo "no_proxy=$NO_P" >> "$ENV_FILE"
 fi
 
-# 4. 确保配置文件存在
-if [ ! -f "$DIR/openclaw.json" ]; then
-    echo '{"agents":{"defaults":{"workspace":"./workspace"}},"mode":"token","token":"'$TOKEN'"}' > "$DIR/openclaw.json"
+# 4. 确保配置文件存在且格式正确 (OpenClaw 2026.4.8 格式)
+if [ ! -f "$DIR/openclaw.json" ] || ! grep -q "\"gateway\"" "$DIR/openclaw.json"; then
+    echo "正在为 $PROFILE_INPUT 创建或升级配置文件..."
+    cat << JSON_EOF > "$DIR/openclaw.json"
+{
+  "agents": {
+    "defaults": {
+      "workspace": "./workspace"
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "$TOKEN"
+    },
+    "port": $PORT,
+    "bind": "loopback"
+  }
+}
+JSON_EOF
 fi
 
-# 5. 实例化服务管理
+# 5. 启动管理
 TEMPLATE_SERVICE="openclaw-gateway@$RESOLVED_PROFILE"
-
-# 移除旧的静态服务文件（迁移到模板）
 if [ -f "$SERVICE" ]; then
-    echo "🧹 移除旧的静态服务文件: $SERVICE"
     systemctl --user stop "$SERVICE_NAME.service" || true
     systemctl --user disable "$SERVICE_NAME.service" || true
     rm "$SERVICE"
 fi
 
-echo "⚡ [4/5] 正在启动并重载 $TEMPLATE_SERVICE..."
 systemctl --user daemon-reload
 systemctl --user enable "$TEMPLATE_SERVICE" --now
 systemctl --user restart "$TEMPLATE_SERVICE"
 
-pod_health_check "$TEMPLATE_SERVICE" "$PROFILE_INPUT"
+pod_health_check "$TEMPLATE_SERVICE" "$PROFILE_INPUT" "$PORT"
