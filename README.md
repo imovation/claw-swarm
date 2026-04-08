@@ -38,14 +38,17 @@
 ```
 此工具会自动读取 Token 并注入隔离的环境变量。
 
-### 4. 隔离特性 (Isolation)
-- **进程隔离**：每个 Pod 运行为独立的 Systemd User Service (`openclaw-gateway-<name>.service`)。
+### 4. 隔离与同步特性 (Isolation & Sync)
+- **进程隔离**：基于 Systemd 实例化模板 (`openclaw-gateway@.service`)，提供轻量且一致的生命周期管理。
 - **环境隔离**：每个 Pod 拥有独立的 `TMPDIR`、`XDG_CONFIG_HOME` 和浏览器数据目录，彻底杜绝资源竞争。
-- **依赖隔离**：插件采用物理拷贝模式，确保实例间互不干扰。
+- **依赖隔离**：插件采用物理拷贝模式，支持在 `swarm.yaml` 中声明插件清单并自动同步。
+- **全局代理同步**：支持在 `global.proxy` 中统一定义代理，全集群自动注入。
+- **版本自生命周期**：`claw-apply` 包含自动版本检测，支持一键交互式更新 OpenClaw 主程序。
 
 ---
 
 ## 📖 开发者文档
 - [项目基本宪法](CONSTITUTION.md)
 - [底层架构详述](docs/ARCHITECTURE.md)
+- [Agent 操作指南](AGENTS.md) (包含 `opencode-model-manager` 技能说明)
 - [演进路线图](docs/ROADMAP.md)

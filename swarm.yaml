@@ -7,6 +7,9 @@ global:
     socks: socks://127.0.0.1:7897/
     no_proxy: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
   orphan_policy: delete
+  # 全局默认插件
+  plugins:
+    - opencode-antigravity-auth
 pods:
 - name: main
   profile: default
@@ -20,3 +23,6 @@ pods:
   token: 'aimee666666'
   resources:
     browser: dedicated
+  # Pod 特定插件
+  plugins:
+    - openclaw-lark

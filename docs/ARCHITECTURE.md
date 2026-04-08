@@ -1,13 +1,13 @@
-# Claw Kubernetes: 声明式解耦架构 (v2.0)
+# Claw Kubernetes: 声明式解耦架构 (v3.0)
 
 本文阐述了 `claw-swarm` 项目的底层设计模式。
 
 ## 1. 核心范式：Pod (蜂穴) 隔离
 每个 OpenClaw 实例被视为一个完全隔离的“Pod”。
 - **状态隔离**：独立 `~/.openclaw-<name>/` 目录。
-- **环境隔离 (Virtual Home)**：强制注入 `XDG_*` 变量和专属浏览器路径，锁定软件的所有读写行为到 Pod 内部。
-- **依赖隔离**：物理拷贝插件，杜绝符号链接导致的污染。
-- **进程隔离**：封装为 Systemd User Services (`openclaw-gateway-<name>.service`)。
+- **环境隔离 (Virtual Home)**：强制注入 `XDG_*` 变量和专属浏览器路径。
+- **依赖隔离**：物理拷贝插件，支持 `swarm.yaml` 声明式同步。
+- **进程隔离**：基于 Systemd 实例化模板 (`openclaw-gateway@.service`)。
 
 ## 2. 声明式配置模型 (Declarative Model)
 本项目受 Kubernetes 启发，采用“期望状态”驱动逻辑。
@@ -65,9 +65,11 @@
 - 自动同步更新 swarm.yaml 中的声明
 - 保持声明式和命令式操作的一致性
 
-### 3.4 自我修复能力增强
-- `claw-repair`：修复了逻辑被错误分割执行两遍的严重Bug
-- 动态路径解析：消除了硬编码的 Node.js 版本号，自适应 nvm 环境变更
+### 3.4 自动化生命周期管理
+- **插件自动调和**：`clawctl` 现在根据 `swarm.yaml` 中的插件定义，自动从全局目录同步到 Pod 内部。
+- **全局代理注入**：代理配置从脚本中剥离，由 `claw-apply` 解析并动态注入 Pod 环境。
+- **API 级健康检查**：支持对每个 Pod 进行存活 (Liveness) 探测。
+- **主程序更新**：内置 OpenClaw 版本检测与交互式升级机制。
 
 ## 4. 隔离全家桶：Virtual Home (虚拟家目录)
 为了解决 OS 级冲突（如浏览器、缓存、临时文件），`clawctl` 为每个 Pod 注入了以下环境变量：

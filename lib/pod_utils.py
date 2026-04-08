@@ -178,10 +178,7 @@ def parse_pod_config(profile: str) -> tuple[str, str]:
 def get_actual_services() -> dict:
     """
     通过 Systemd 列出当前正在运行的所有 openclaw-gateway* 服务。
-    从 claw-status 中提取为共享函数，避免重复。
-
-    返回值:
-        { pod_name: { "service": str, "profile": str } }
+    支持实例化服务模板 (@)。
     """
     out = subprocess.run(
         ["systemctl", "--user", "list-units", "openclaw-gateway*", "--all", "--no-legend"],
@@ -192,10 +189,20 @@ def get_actual_services() -> dict:
     for line in out.splitlines():
         if not line.strip():
             continue
-        svc = line.split()[0].removesuffix(".service")
-        profile = "default" if svc == "openclaw-gateway" else svc.replace("openclaw-gateway-", "")
-        name = "main" if profile == "default" else profile
-        services[name] = {"service": svc, "profile": profile}
+        full_svc = line.split()[0].removesuffix(".service")
+        
+        # 优先处理实例化服务
+        if "@" in full_svc:
+            # openclaw-gateway@name
+            profile = full_svc.split("@", 1)[1]
+            name = "main" if profile == "default" else profile
+        else:
+            # 处理旧的静态服务 openclaw-gateway(-name)
+            svc = full_svc
+            profile = "default" if svc == "openclaw-gateway" else svc.replace("openclaw-gateway-", "")
+            name = "main" if profile == "default" else profile
+            
+        services[name] = {"service": full_svc, "profile": profile}
 
     return services
 
@@ -210,30 +217,70 @@ def systemd_reload_restart(service_name: str) -> None:
 
 
 # ==============================================================================
-def pod_health_check(service_name: str, display_name: Optional[str] = None) -> bool:
+def pod_health_check(service_name: str, display_name: Optional[str] = None, port: Optional[int] = None) -> bool:
     """
     执行健康检查并打印结果。
-    
-    Args:
-        service_name: Systemd 服务名（不含 .service）
-        display_name: 用于显示的名称，如果为 None 则使用 service_name
-    
-    Returns:
-        bool: True 如果服务处于 active 状态
+    支持基础的 Systemd 状态检查和进阶的 API 业务检查。
     """
     import time
-    time.sleep(3)
+    import http.client
+    
+    time.sleep(5) # 给 OpenClaw 一些启动时间
     try:
+        # 1. 基础检查：Systemd 状态
         result = subprocess.run(["systemctl", "--user", "is-active", "--quiet", f"{service_name}.service"], 
                               capture_output=True)
         is_active = result.returncode == 0
         display = display_name or service_name
-        if is_active:
-            print(f"✅ Pod '{display}' 运行正常。")
-            print(f"   查看日志: journalctl --user -fu {service_name}.service")
-        else:
-            print(f"⚠️  Pod '{display}' 仍有问题，请检查日志: journalctl --user -u {service_name}.service")
-        return is_active
+        
+        if not is_active:
+            print(f"⚠️  Pod '{display}' (Systemd) 启动失败，请检查日志: journalctl --user -u {service_name}.service")
+            return False
+
+        # 2. 进阶检查：API 业务健康 (如果提供了端口)
+        if port:
+            try:
+                conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+                # OpenClaw 的 gateway 通常在 / 有响应或特定 API
+                conn.request("GET", "/") 
+                res = conn.getresponse()
+                if res.status < 500:
+                    print(f"✅ Pod '{display}' 运行正常 (API 响应: {res.status})。")
+                    return True
+                else:
+                    print(f"⚠️  Pod '{display}' API 响应异常: {res.status}")
+                    return False
+            except Exception as e:
+                print(f"⚠️  Pod '{display}' API 探测失败: {e}")
+                return False
+
+        print(f"✅ Pod '{display}' (Systemd) 运行正常。")
+        return True
     except Exception as e:
         print(f"⚠️  检查 Pod '{service_name}' 健康状态时出错: {e}")
         return False
+
+
+def get_openclaw_versions() -> tuple[str, str]:
+    """
+    获取 OpenClaw 的本地版本和 npm 远程版本。
+    返回 (local_version, remote_version)
+    """
+    try:
+        # 获取本地版本
+        local_res = subprocess.run(["openclaw", "-v"], capture_output=True, text=True)
+        # 匹配版本号，例如 "OpenClaw 2026.4.8 (9ece252)" -> "2026.4.8"
+        import re
+        local_v = "unknown"
+        if local_res.returncode == 0:
+            match = re.search(r"OpenClaw ([\d\.]+)", local_res.stdout)
+            if match:
+                local_v = match.group(1)
+        
+        # 获取远程版本
+        remote_res = subprocess.run(["npm", "view", "openclaw", "version"], capture_output=True, text=True)
+        remote_v = remote_res.stdout.strip() if remote_res.returncode == 0 else "unknown"
+        
+        return local_v, remote_v
+    except Exception:
+        return "error", "error"

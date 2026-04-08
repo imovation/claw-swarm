@@ -133,3 +133,37 @@ pod_health_check() {
         echo "⚠️  Pod '$display' 仍有问题，请检查日志: journalctl --user -u $svc.service"
     fi
 }
+
+# ==============================================================================
+# sync_plugins <target_dir> <plugin_list_comma_separated>
+# 物理同步插件到 Pod 的 extensions 目录。
+# ==============================================================================
+sync_plugins() {
+    local target_dir="$1"
+    local plugins="$2"
+    local extensions_dir="$target_dir/extensions"
+    local node_modules_global
+
+    # 获取全局 node_modules 路径
+    node_modules_global=$(dirname "$(get_node_binary)")/../lib/node_modules
+    
+    mkdir -p "$extensions_dir"
+
+    IFS=',' read -ra ADDR <<< "$plugins"
+    for plugin in "${ADDR[@]}"; do
+        if [ -z "$plugin" ]; then continue; fi
+        local src="$node_modules_global/$plugin"
+        if [ -d "$src" ]; then
+            echo "   📦 正在同步插件: $plugin..."
+            # 使用 rsync 进行增量同步，如果不存在则回退到 cp
+            if command -v rsync >/dev/null 2>&1; then
+                rsync -rt --delete "$src/" "$extensions_dir/$plugin/"
+            else
+                rm -rf "$extensions_dir/$plugin"
+                cp -r "$src" "$extensions_dir/$plugin"
+            fi
+        else
+            echo "   ⚠️ 警告: 找不到全局插件 $plugin ($src)"
+        fi
+    done
+}

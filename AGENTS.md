@@ -1,32 +1,20 @@
 # 🐝 Claw-Swarm Agent Guidelines
 
-This document provides instructions for agentic coding assistants (like you) operating within the `claw-swarm` repository. 
+This document provides high-signal instructions for agentic coding assistants (like you) to avoid common mistakes in the `claw-swarm` environment.
 
 ## 🛠️ Management Commands (CLI)
 
-All management scripts are located in the `bin/` directory.
+Prefer declarative management via `swarm.yaml` and `./bin/claw-apply`.
 
 ### Pod Management
-- **Provision a new Pod**: 
-  ```bash
-  ./bin/clawctl <PROFILE_NAME> <PORT> <TOKEN>
-  ```
-- **Repair/Unify an Instance**:
-  ```bash
-  ./bin/claw-repair <PROFILE_NAME>
-  ```
-- **Change Instance Port**:
-  ```bash
-  ./bin/claw-port <PROFILE_NAME> <NEW_PORT>
-  ```
-- **Remove an Instance**:
-  ```bash
-  ./bin/claw-rm <PROFILE_NAME>
-  ```
-- **Check Status**:
-  ```bash
-  ./bin/claw-status
-  ```
+- **Apply Configuration**: `./bin/claw-apply` (Syncs `swarm.yaml` to systemd units).
+- **Check Cluster Status**: `./bin/claw-status` (Shows memory, models, and health).
+- **Interactive TUI**: `./bin/claw-tui <NAME>` (Injects correct env/token for debugging).
+- **Manual Provision/Repair**:
+  - Provision: `./bin/clawctl <NAME> <PORT> <TOKEN>`
+  - Repair/Unify: `./bin/claw-repair <NAME>`
+  - Remove: `./bin/claw-rm <NAME>`
+- **Systemd Check**: `systemctl --user list-units "openclaw-gateway*"`
 
 ### Feishu/Lark Multi-Bot Support
 
@@ -62,22 +50,30 @@ All management scripts are located in the `bin/` directory.
   ./bin/claw-lark aimee bot2 cli_xxx yyy
   ```
 
-## 📐 Code Style & Architecture Guidelines
+## 🤖 Model Management & Troubleshooting
+
+When users report model issues (e.g., "stuck on big-pickle"), use the **`opencode-model-manager`** skill.
+
+### 1. Configuration Hierarchy
+- **Local First**: Modify `~/.opencode/opencode.json` within the Pod's isolated environment.
+- **Global Fallback**: `~/.config/opencode/opencode.json` is only used if local config is missing.
+
+### 2. Common Fixes
+- **Fallback to "big-pickle"**: Usually means the `opencode-antigravity-auth` plugin is broken or Google auth expired.
+- **Fixing Plugin**: In `~/.opencode/node_modules/opencode-antigravity-auth/dist/src/plugin/storage.js`, ensure:
+  `import * as lockfile from "proper-lockfile";` (NOT default import).
+- **Verification**: Use `/new` in the client to reset session context, then ask the agent: "What is your full model ID?"
+
+## 📐 Architecture & Constraints
 
 ### 1. The "Pod" Isolation Principle (CRITICAL)
-- **100% Logical Isolation**: Each profile MUST have its own dedicated directory (`~/.openclaw-<NAME>`).
-- **Dependency Isolation**: NEVER symlink `extensions/`. ALWAYS hard copy (`cp -r`) plugins.
-- **Port Unification**: Use the `--port` flag in `ExecStart` to ensure HTTP and WebSocket use the same port.
-- **Naming Standard**: Service units MUST follow the pattern `openclaw-gateway-<name>.service` to align with native OpenClaw logic.
+- **Isolation**: Each profile MUST have its own directory (`~/.openclaw-<NAME>`).
+- **Plugins**: NEVER symlink `extensions/`. ALWAYS hard copy (`cp -r`) to prevent dependency bleeding.
+- **Environment**: Always inject `OPENCLAW_STATE_DIR`, `OPENCLAW_CONFIG_PATH`, and `TMPDIR` in systemd units.
 
-### 2. Systemd Standards
-- **User Mode**: Deploy as Systemd User Units (`~/.config/systemd/user/`).
-- **Environment Injection**: Always inject `OPENCLAW_STATE_DIR` and `OPENCLAW_CONFIG_PATH` into the `[Service]` block to force path isolation.
-
-### 3. File Structure
-- Scripts: `bin/`
-- Docs: `docs/`
-- Config: Root or `core/`
+### 2. Code Conventions
+- **Systemd**: Deploy as User Units in `~/.config/systemd/user/`.
+- **Naming**: Service units MUST match `openclaw-gateway-<name>.service`.
 
 ---
 *Note: Consult `docs/ARCHITECTURE.md` for low-level design details.*
