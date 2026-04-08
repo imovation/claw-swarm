@@ -6,6 +6,7 @@ This document provides instructions for agentic coding assistants (like you) ope
 
 All management scripts are located in the `bin/` directory.
 
+### Pod Management
 - **Provision a new Pod**: 
   ```bash
   ./bin/clawctl <PROFILE_NAME> <PORT> <TOKEN>
@@ -24,11 +25,41 @@ All management scripts are located in the `bin/` directory.
   ```
 - **Check Status**:
   ```bash
-  systemctl --user list-units "openclaw-gateway*"
+  ./bin/claw-status
   ```
-  Or use the built-in monitor:
+
+### Feishu/Lark Multi-Bot Support
+
+- **Add a Feishu Bot to existing Pod**:
   ```bash
-  ./bin/claw-ps
+  ./bin/claw-bot-add <PROFILE_NAME> <BOT_ID> <APP_ID> <APP_SECRET> [USER_ID]
+  ```
+  Example:
+  ```bash
+  ./bin/claw-bot-add aimee bot2 cli_xxx yyy ou_123
+  ```
+
+- **Create Agent and bind to Bot**:
+  ```bash
+  ./bin/claw-agent-create <PROFILE_NAME> <AGENT_NAME> [BOT_ID]
+  ```
+  Example:
+  ```bash
+  ./bin/claw-agent-create aimee aimee2 bot2
+  ```
+
+- **Bind existing Agent to Bot**:
+  ```bash
+  ./bin/claw-bot-bind <PROFILE_NAME> <BOT_ID> <AGENT_NAME>
+  ```
+
+- **Configure Feishu (interactive or direct)**:
+  ```bash
+  ./bin/claw-lark <PROFILE_NAME> [BOT_ID] [APP_ID] [APP_SECRET]
+  ```
+  Example:
+  ```bash
+  ./bin/claw-lark aimee bot2 cli_xxx yyy
   ```
 
 ## 📐 Code Style & Architecture Guidelines

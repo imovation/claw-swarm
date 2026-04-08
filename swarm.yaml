@@ -20,9 +20,3 @@ pods:
   token: 'aimee666666'
   resources:
     browser: dedicated
-- name: shining
-  profile: shining
-  port: 18880
-  token: shining66666
-  resources:
-    browser: dedicated
