@@ -12,4 +12,6 @@
 # OS files
 .DS_Store
 Thumbs.db
-modules/orchestration/config-parser/__pycache__
+**/__pycache__/
+*.pyc
+*.pyo
