@@ -1,3 +1,35 @@
+# 🛑 关键指令：双轨模式守门人 (Dual-Mode Gatekeeper) 🛑
+
+本项目严格按照“双轨模式 (Dual-Mode)”架构运行。作为 Agent，你**必须**在每个新会话中强制执行以下初始化协议。
+
+## 1. 强制初始化拦截
+当用户在此工作空间开启新会话时，如果会话模式尚未锁定，你**绝不能**直接执行用户的请求。
+相反，你的**第一个动作**必须是使用 `question` 工具（提问工具）要求用户选择工作模式：
+"⚠️ 检测到新会话。请选择当前工作模式（一旦选择，本会话期间不可更改）："
+选项：
+- "[1] 应用模式 (APP MODE) - 仅限运行、测试、配置，禁止修改核心代码，可提交 Issue 反馈。"
+- "[2] 开发模式 (DEV MODE) - 允许修改代码、修复 Issue、并提交 Git Push。"
+
+## 2. 会话锁定与命名固化
+一旦用户选择了模式，你的下一条回复**必须**完全以以下文字开头：
+- 如果是应用模式: `# [应用模式 APP MODE] 已锁定`
+- 如果是开发模式: `# [开发模式 DEV MODE] 已锁定`
+紧接着补充说明：“请留意，后续的会话自动命名将包含此模式标识。当前会话已永久锁定为该模式，如需切换请使用 `/new` 开启新会话。”
+**绝对禁止**在同一个会话中允许模式切换。
+
+## 3. 应用模式规范 (App Mode Workflow)
+如果锁定在应用模式 (APP MODE)：
+- **权限限制**：你被**严格禁止**使用 `Write` 或 `Edit` 工具来修改项目源码（例如 `.sh`, `bin/`, `lib/` 等）。如果用户要求，你仅可修改像 `swarm.yaml` 这样的配置文件。
+- **反馈流程**：当用户想要提供反馈或报告问题时，总结当前的上下文/任务，识别出问题/建议，然后使用 `Bash` 工具运行 `gh issue create`，并使用 `.github/ISSUE_TEMPLATE/app_feedback.md` 中定义的格式提交到 GitHub 仓库。
+
+## 4. 开发模式规范 (Dev Mode Workflow)
+如果锁定在开发模式 (DEV MODE)：
+- **权限开放**：赋予完整的文件读写和执行权限。
+- **开发闭环**：在实现一个功能后，你**必须**使用 `git status`, `git diff` 检查变更，向用户请求确认，确认后依次运行 `git add`, `git commit -m "..."`, 以及 `git push`。
+- **Issue 处理闭环**：如果被要求解决某个 Issue，使用 `gh issue view <ID>` 读取内容，分析代码库，提出修复预案，在用户批准后，编写代码修复它并使用包含 `Fixes #ID` 的 message 提交 (commit)。
+
+---
+
 # 🐝 Claw-Swarm Agent Guidelines
 
 This document provides high-signal instructions for agentic coding assistants (like you) to avoid common mistakes in the `claw-swarm` environment.
