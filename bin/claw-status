@@ -20,7 +20,8 @@ from pod_utils import (
     get_swarm_config,
     get_actual_services,
     get_service_metrics,
-    parse_pod_config
+    parse_pod_config,
+    resolve_pod
 )
 
 CONFIG_FILE = PROJECT_ROOT / "swarm.yaml"
@@ -29,8 +30,46 @@ GREEN = '\033[0;32m'
 RED = '\033[0;31m'
 YELLOW = '\033[0;33m'
 CYAN = '\033[0;36m'
+BLUE = '\033[0;34m'
 BOLD = '\033[1m'
 NC = '\033[0m'
+
+
+def get_matrix_status(profile):
+    """解析 Pod 的 Matrix 渠道状态。"""
+    try:
+        pod_info = resolve_pod(profile)
+        config_path = pod_info['config']
+        if not config_path.exists():
+            return None
+        
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        
+        matrix = config.get('channels', {}).get('matrix', {})
+        if not matrix.get('enabled'):
+            return None
+        
+        # 解析状态
+        homeserver = matrix.get('homeserver', 'N/A')
+        encryption = matrix.get('encryption', False)
+        
+        # 提取 homeserver 域名作为简短显示
+        if '://' in homeserver:
+            short_hs = homeserver.split('://')[1].split('/')[0]
+        else:
+            short_hs = homeserver
+        
+        enc_str = f"{GREEN}E2EE{NC}" if encryption else f"{YELLOW}明文{NC}"
+        
+        return {
+            'homeserver': short_hs,
+            'encryption': enc_str,
+            'userId': matrix.get('userId', 'N/A'),
+            'dm_policy': matrix.get('dm', {}).get('policy', 'pairing'),
+        }
+    except Exception:
+        return None
 
 def main():
     desired_pods = {}
@@ -43,11 +82,11 @@ def main():
 
     actual_services = get_actual_services()
 
-    header = f"{BOLD}%-25s %-10s %-8s %-12s %-15s %-25s %-15s %-10s{NC}" % (
-        "实例 (POD)", "状态", "端口", "内存占用", "启动时间", "主用模型", "生效渠道", "同步状态"
+    header = f"{BOLD}%-25s %-10s %-8s %-12s %-15s %-18s %-15s %-12s{NC}" % (
+        "实例 (POD)", "状态", "端口", "内存占用", "启动时间", "主用模型", "生效渠道", "Matrix"
     )
     print(header)
-    print("-" * 130)
+    print("-" * 145)
 
     # 合并所有已知的名称
     # 注意：actual_services 的 key 是规范后的名称 (main 或 profile)
@@ -90,11 +129,16 @@ def main():
             else:
                 sync_str = f"{CYAN}未纳管(Orphan){NC}"
         
-        display_name = svc_name if actual else f"{name} (missing)"
+        # 显示名称：优先使用 swarm.yaml 中的 name，其次使用规范化的 name
+        display_name = desired['name'] if desired else name
         
-        print("%-25s %-10s %-8s %-12s %-15s %-25s %-15s %-10s" % (
+        # 获取 Matrix 状态
+        matrix_status = get_matrix_status(profile) if actual else None
+        matrix_display = f"{BLUE}未启用{NC}" if matrix_status is None else matrix_status['encryption']
+        
+        print("%-25s %-10s %-8s %-12s %-15s %-18s %-15s %-12s" % (
             f"{BOLD}{display_name}{NC}" if desired else display_name,
-            status_str, port, mem_str, uptime, model[:24], channels[:14], sync_str
+            status_str, port, mem_str, uptime, model[:17], channels[:14], matrix_display
         ))
 
 if __name__ == "__main__":

@@ -67,6 +67,52 @@ def apply_pod(pod_config, global_config):
     else:
         print(f"   ❌ {name} 同步失败。")
     sys.stdout.flush()
+    
+    # 处理 Matrix 配置（合并全局与 Pod 特定配置）
+    apply_matrix_config(pod_config, global_config, profile)
+
+
+def apply_matrix_config(pod_config, global_config, profile):
+    """应用 Matrix 配置到 Pod。"""
+    global_matrix = global_config.get('matrix', {})
+    pod_matrix = pod_config.get('matrix', {})
+    
+    if not global_matrix and not pod_matrix:
+        return
+    
+    matrix_conf = {**global_matrix, **pod_matrix}
+    
+    if not matrix_conf.get('enabled', False):
+        return
+    
+    name = pod_config['name']
+    print(f"   📱 正在配置 Matrix 渠道...")
+    
+    # 构建完整配置 JSON
+    matrix_json = json.dumps(matrix_conf)
+    
+    # 写入临时文件供 Python 处理
+    temp_config = Path(f"/tmp/matrix_config_{profile}_{os.getpid()}.json")
+    with open(temp_config, 'w') as f:
+        json.dump(matrix_conf, f)
+    
+    try:
+        # 调用增强版 claw-matrix-add
+        matrix_cmd = [
+            str(BIN_DIR / 'claw-matrix-add'),
+            profile,
+            '--config-file', str(temp_config)
+        ]
+        
+        result = subprocess.run(matrix_cmd, check=False, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"   ✅ Matrix 配置已应用。")
+        else:
+            print(f"   ⚠️  Matrix 配置失败: {result.stderr[:200] if result.stderr else result.stdout[:200]}")
+    finally:
+        if temp_config.exists():
+            temp_config.unlink()
 
 def handle_orphans(desired_pods, actual_services, orphan_policy):
     """处理孤儿 Pod。"""
@@ -101,23 +147,38 @@ def handle_orphans(desired_pods, actual_services, orphan_policy):
     elif orphan_policy == "warn":
         print("⚠️  根据 global.orphan_policy: warn，仅提醒未采取行动。")
 
-def check_and_update_openclaw():
+def check_and_update_openclaw(skip_update=False, auto_yes=False, non_interactive=False):
     """检测版本并询问用户是否更新。"""
     from pod_utils import get_openclaw_versions
     local_v, remote_v = get_openclaw_versions()
     
     if local_v == "error" or remote_v == "error":
-        return
-
+        return False
+    
     print(f"🔍 正在检测 OpenClaw 版本: 当前={local_v}, 最新={remote_v}")
     
     if local_v != remote_v and remote_v != "unknown":
         print(f"\n✨ 发现新版本 OpenClaw: {local_v} -> {remote_v}")
-        choice = input("❓ 是否现在更新 OpenClaw? (y/N): ").lower()
+        
+        if skip_update:
+            print("⏭️  已跳过版本更新 (--skip-update)")
+            return False
+        
+        if auto_yes:
+            choice = 'y'
+            print("🤖 自动确认更新 (--yes)")
+        elif non_interactive:
+            print("⏭️  非交互模式，跳过更新")
+            return False
+        else:
+            try:
+                choice = input("❓ 是否现在更新 OpenClaw? (y/N): ").lower()
+            except EOFError:
+                choice = 'n'
+        
         if choice == 'y':
             print(f"🚀 正在更新 OpenClaw 到 {remote_v}...")
             try:
-                # 尝试使用 sudo 或直接运行，取决于系统配置，这里假设环境允许
                 subprocess.run(["npm", "install", "-g", "openclaw"], check=True)
                 print("✅ OpenClaw 已更新。")
                 return True
@@ -128,12 +189,24 @@ def check_and_update_openclaw():
     return False
 
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Claw-Swarm 声明式控制器')
+    parser.add_argument('--skip-update', action='store_true', help='跳过 OpenClaw 版本检测')
+    parser.add_argument('--yes', '-y', action='store_true', help='自动确认版本更新')
+    parser.add_argument('--dry-run', action='store_true', help='仅预览变更，不实际执行')
+    args = parser.parse_args()
+
+    # 检测是否非交互模式
+    non_interactive = not sys.stdin.isatty()
+
     if not CONFIG_FILE.exists():
         print(f"❌ 错误: 找不到配置文件 {CONFIG_FILE}。")
         sys.exit(1)
 
     # 0. 版本检查
-    check_and_update_openclaw()
+    if not args.skip_update:
+        check_and_update_openclaw(args.skip_update, args.yes, non_interactive)
 
     try:
         config = get_swarm_config(CONFIG_FILE)
@@ -146,6 +219,29 @@ def main():
     orphan_policy = global_config.get('orphan_policy', 'warn')
     desired_pods = {pod['name']: pod for pod in pods}
     actual_services = get_actual_services()
+
+    if args.dry_run:
+        print("\n🌀 === DRY RUN 模式 ===")
+        print(f"将创建/更新 {len(pods)} 个 Pod:")
+        for pod in pods:
+            name = pod['name']
+            profile = pod.get('profile', name)
+            port = pod['port']
+            print(f"   • {name} (profile: {profile}, port: {port})")
+        
+        # 检查孤儿
+        desired_names = set(desired_pods.keys())
+        actual_names = set(actual_services.keys())
+        orphans = actual_names - desired_names
+        if orphans:
+            print(f"\n发现 {len(orphans)} 个孤儿 Pod: {', '.join(sorted(orphans))}")
+            if orphan_policy == "delete":
+                print("   将执行删除 (orphan_policy: delete)")
+            else:
+                print("   仅警告 (orphan_policy: warn)")
+        
+        print("\n✅ Dry run 完成，未执行实际变更。")
+        return
 
     # 1. 调和 Pod
     for pod in pods:

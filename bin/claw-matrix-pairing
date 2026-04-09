@@ -1,0 +1,74 @@
+#!/bin/bash
+# bin/claw-matrix-pairing — Matrix 配对审批管理工具
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+usage() {
+    echo "用法: $(basename "$0") <PROFILE> <COMMAND> [OPTIONS]"
+    echo ""
+    echo "Matrix 配对审批管理工具"
+    echo ""
+    echo "命令:"
+    echo "  list                列出待处理的配对请求"
+    echo "  approve <CODE>      批准配对码"
+    echo "  deny <CODE>        拒绝配对码"
+    echo ""
+    echo "示例:"
+    echo "  $(basename "$0") default list"
+    echo "  $(basename "$0") default approve ABC123"
+    exit 1
+}
+
+if [ "$#" -lt 2 ]; then
+    usage
+fi
+
+PROFILE="$1"
+COMMAND="$2"
+
+if [ "$COMMAND" = "approve" ] || [ "$COMMAND" = "deny" ]; then
+    if [ -z "${3:-}" ]; then
+        echo "错误: $COMMAND 命令需要配对码参数"
+        exit 1
+    fi
+    CODE="$3"
+fi
+
+resolve_pod "$PROFILE"
+
+export OPENCLAW_STATE_DIR="$DIR"
+export OPENCLAW_CONFIG_PATH="$DIR/openclaw.json"
+export TMPDIR="$DIR/runtime/tmp"
+export XDG_CONFIG_HOME="$DIR/runtime/config"
+export XDG_CACHE_HOME="$DIR/runtime/cache"
+export XDG_DATA_HOME="$DIR/runtime/data"
+
+NODE_BIN=$(get_node_binary)
+CLAW_BIN=$(get_openclaw_binary)
+
+echo "🔗 Matrix 配对管理 (Pod: $PROFILE)"
+echo "========================================"
+
+case "$COMMAND" in
+    list)
+        echo ""
+        echo "📋 正在列出待处理配对请求..."
+        $NODE_BIN $CLAW_BIN pairing list matrix
+        ;;
+    approve)
+        echo ""
+        echo "✅ 正在批准配对码: $CODE"
+        $NODE_BIN $CLAW_BIN pairing approve matrix "$CODE"
+        ;;
+    deny)
+        echo ""
+        echo "❌ 正在拒绝配对码: $CODE"
+        $NODE_BIN $CLAW_BIN pairing deny matrix "$CODE"
+        ;;
+    *)
+        echo "未知命令: $COMMAND"
+        usage
+        ;;
+esac

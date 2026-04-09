@@ -7,9 +7,122 @@ global:
     socks: socks://127.0.0.1:7897/
     no_proxy: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
   orphan_policy: delete
-  # 全局默认插件
   plugins:
     - opencode-antigravity-auth
+  
+  # ============================================================
+  # 全局默认 Matrix 配置（可被 Pod 覆盖）
+  # ============================================================
+  matrix:
+    enabled: false
+    
+    # ---- 认证方式 (二选一) ----
+    # 方式 1: Token 认证
+    # homeserver: https://matrix.org
+    # accessToken: "${MATRIX_TOKEN}"  # SecretRef 格式
+    
+    # 方式 2: 密码认证 (登录后会缓存令牌)
+    # homeserver: https://matrix.org
+    # userId: "@bot:example.org"
+    # password: "${MATRIX_PASSWORD}"  # SecretRef 格式
+    
+    # deviceName: "OpenClaw Gateway"
+    # name: "My Bot"  # 账号显示名称
+    # initialSyncLimit: 100
+    # encryption: false
+    # allowlistOnly: false
+    # allowBots: false  # true/"mentions"
+    # defaultAccount: "default"
+    
+    # ---- 启动验证 ----
+    # startupVerification: if-unverified  # if-unverified/off
+    # startupVerificationCooldownHours: 24
+    
+    # ---- 私信策略 ----
+    # dm:
+    #   policy: pairing  # allowlist/pairing/open/disabled
+    #   allowFrom: ["@admin:example.org"]
+    #   sessionScope: per-user  # per-user/per-room
+    #   threadReplies: off  # off/inbound/always
+    
+    # ---- 群组/房间策略 ----
+    # groupPolicy: open  # open/allowlist/disabled
+    # groupAllowFrom: ["@admin:example.org"]
+    # autoJoin: "off"  # always/allowlist/off
+    # autoJoinAllowlist: ["!room:example.org", "#support:example.org"]
+    # historyLimit: 0
+    
+    # ---- 消息功能 ----
+    # streaming: "off"  # off/partial/quiet
+    # blockStreaming: false
+    # threadReplies: off  # off/inbound/always
+    # markdown: {}  # Markdown 渲染配置
+    # replyToMode: off  # off/first/all/batched
+    # textChunkLimit: 10000  # 字符数拆分限制
+    # chunkMode: length  # length/newline
+    # responsePrefix: ""  # 回复前缀
+    # mediaMaxMb: 10  # 媒体大小限制
+    # contextVisibility: all  # all/allowlist/allowlist_quote
+    
+    # ---- 表情回应与确认 ----
+    # ackReaction: ""  # 确认表情符号
+    # ackReactionScope: group-mentions  # group-mentions/group-all/direct/all/none/off
+    # reactionNotifications: own  # own/off
+    
+    # ---- 线程绑定 ----
+    # threadBindings:
+    #   enabled: true
+    #   idleHours: 24
+    #   maxAgeHours: 168
+    #   spawnSubagentSessions: false
+    #   spawnAcpSessions: true
+    
+    # ---- 执行审批 ----
+    # execApprovals:
+    #   enabled: auto  # auto/true/false
+    #   approvers: ["@admin:example.org"]
+    #   target: dm  # dm/channel/both
+    
+    # ---- 网络与代理 ----
+    # network:
+    #   dangerouslyAllowPrivateNetwork: false
+    # proxy: http://127.0.0.1:7897/
+    
+    # ---- 多账号配置 ----
+    # accounts:
+    #   assistant:
+    #     homeserver: https://matrix.org
+    #     accessToken: "${MATRIX_ASSISTANT_TOKEN}"
+    #     encryption: true
+    #   alerts:
+    #     homeserver: https://matrix.org
+    #     accessToken: "${MATRIX_ALERTS_TOKEN}"
+    #     dm:
+    #       policy: allowlist
+    #       allowFrom: ["@ops:example.org"]
+    
+    # ---- 房间级配置 ----
+    # groups:
+    #   "!room:example.org":
+    #     requireMention: true
+    #     allowBots: false  # true/"mentions"
+    #     users: ["@admin:example.org"]
+    #     tools: {}  # 每房间工具门控
+    #     autoReply: false
+    #     skills: []
+    #     systemPrompt: ""
+    #     account: default  # 限定账号
+    
+    # ---- 操作门控 ----
+    # actions:
+    #   messages: true
+    #   reactions: true
+    #   pins: true
+    #   profile: true
+    #   memberInfo: true
+    #   channelInfo: true
+    #   verification: true
+
 pods:
 - name: main
   profile: default
@@ -17,12 +130,46 @@ pods:
   token: 317939afcb24c15aa26a313932fb2f46b763200a63e7e08f
   resources:
     browser: shared
+  
+  # ---- Pod 级 Matrix 配置 (覆盖全局) ----
+  # matrix:
+  #   enabled: true
+  #   homeserver: https://matrix.org
+  #   accessToken: "${MATRIX_MAIN_TOKEN}"
+  #   encryption: true
+  #   dm:
+  #     policy: pairing
+  #   groupPolicy: allowlist
+  #   groupAllowFrom: ["@friend:example.org"]
+  #   autoJoin: "allowlist"
+  #   autoJoinAllowlist:
+  #     - "!room:example.org"
+  #   streaming: "partial"
+  #   threadBindings:
+  #     enabled: true
+  #     spawnAcpSessions: true
+
 - name: aimee
   profile: aimee
   port: 18881
   token: 'aimee666666'
   resources:
     browser: dedicated
-  # Pod 特定插件
   plugins:
     - openclaw-lark
+  
+  # ---- aimee 的 Matrix 配置 (多账号示例) ----
+  # matrix:
+  #   enabled: true
+  #   defaultAccount: ops
+  #   accounts:
+  #     ops:
+  #       homeserver: https://matrix.org
+  #       accessToken: "${MATRIX_OPS_TOKEN}"
+  #       encryption: true
+  #     support:
+  #       homeserver: https://matrix.org
+  #       accessToken: "${MATRIX_SUPPORT_TOKEN}"
+  #       dm:
+  #         policy: allowlist
+  #         allowFrom: ["@admin:example.org"]

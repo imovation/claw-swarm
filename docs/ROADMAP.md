@@ -20,7 +20,15 @@
 - ✅ 建立 `bin/claw-status` 看板：实时监控内存、模型和同步状态。
 - ✅ 建立 `bin/claw-tui` 快捷入口：环境对齐的终端交互工具。
 
-### Phase 2: 统一网关 (Unified Ingress) — 评估结论：暂不适用
+### Phase 2: Matrix 渠道支持 (Completed ✅)
+- ✅ 声明式 Matrix 配置 (`swarm.yaml` global.matrix / pods[].matrix)。
+- ✅ 6 个 Matrix CLI 工具 (`claw-matrix-add/verify/devices/pairing/profile/direct`)。
+- ✅ SecretRef 支持 (环境变量引用解析)。
+- ✅ 环境变量自动注入 (`MATRIX_*`)。
+- ✅ 多账号支持与隔离。
+- ✅ E2EE 验证封装 (bootstrap/设备验证/密钥备份)。
+
+### Phase 3: 统一网关 (Unified Ingress) — 评估结论：暂不适用
 - **调研结论**：经实际验证，Ingress 对于当前使用场景（租户飞书访问 + 运维 TUI 操作）无实际价值。
 - **原因**：飞书通信走 WebSocket，无需 Web UI；运维通过 `claw-tui` 不需要端口。
 - **决策**：移除 Ingress 相关工作，保持架构简洁。

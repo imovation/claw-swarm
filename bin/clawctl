@@ -21,6 +21,9 @@ resolve_pod "$PROFILE_INPUT"
 
 echo "🚀 正在供应 Pod: $PROFILE_INPUT (端口: $PORT, 插件: $PLUGINS_INPUT)..."
 
+# 0. 检查并创建 systemd 模板服务（如果不存在）
+ensure_template_service
+
 # 1. 环境准备
 mkdir -p "$DIR/runtime/tmp" "$DIR/runtime/config" "$DIR/runtime/cache" "$DIR/runtime/data" "$DIR/runtime/browser"
 
@@ -94,8 +97,29 @@ if [ -f "$SERVICE" ]; then
     rm "$SERVICE"
 fi
 
-systemctl --user daemon-reload
-systemctl --user enable "$TEMPLATE_SERVICE" --now
-systemctl --user restart "$TEMPLATE_SERVICE"
+echo "🔄 正在加载 systemd 模板..."
+if ! systemctl --user daemon-reload 2>/dev/null; then
+    echo "❌ 错误: systemd reload 失败"
+    echo "   提示: 尝试运行: systemctl --user daemon-reload"
+    exit 1
+fi
+
+echo "🚀 正在启动 Pod $PROFILE_INPUT..."
+if ! systemctl --user enable "$TEMPLATE_SERVICE" --now 2>/dev/null; then
+    echo "❌ 错误: 无法启用服务 $TEMPLATE_SERVICE"
+    echo "   可能原因:"
+    echo "   • systemd 模板服务未正确创建"
+    echo "   • OpenClaw 程序未正确安装"
+    echo "   • 端口 $PORT 已被占用"
+    echo ""
+    echo "   排查建议:"
+    echo "   • 检查日志: journalctl --user -u $TEMPLATE_SERVICE -n 50"
+    echo "   • 确认端口: ss -tlnp | grep $PORT"
+    exit 1
+fi
+
+if ! systemctl --user restart "$TEMPLATE_SERVICE" 2>/dev/null; then
+    echo "⚠️  服务启动遇到问题，正在检查..."
+fi
 
 pod_health_check "$TEMPLATE_SERVICE" "$PROFILE_INPUT" "$PORT"

@@ -59,6 +59,49 @@
     ./bin/claw-rm <实例名>
     ```
 
+### 场景 F：配置 Matrix 渠道
+**方式 1：声明式（推荐）**
+1. 在 `swarm.yaml` 的 Pod 配置中添加 Matrix 配置：
+   ```yaml
+   - name: main
+     matrix:
+       enabled: true
+       homeserver: https://matrix.org
+       accessToken: "${MATRIX_TOKEN}"  # 支持 SecretRef
+       encryption: true
+       dm:
+         policy: pairing
+       autoJoin: "allowlist"
+   ```
+2. 运行同步：
+   ```bash
+   ./bin/claw-apply
+   ```
+
+**方式 2：命令式**
+```bash
+./bin/claw-matrix-add main \
+  --homeserver https://matrix.org \
+  --token "${MATRIX_TOKEN}" \
+  --encryption \
+  --dm-policy pairing
+```
+
+### 场景 G：Matrix E2EE 验证与管理
+```bash
+# 检查 E2EE 状态
+./bin/claw-matrix-verify main status --verbose
+
+# 引导交叉签名
+./bin/claw-matrix-verify main bootstrap
+
+# 检查密钥备份
+./bin/claw-matrix-verify main backup status
+
+# 设备清理
+./bin/claw-matrix-devices main prune-stale
+```
+
 ---
 
 ## 3. 运维锦囊 (Troubleshooting)

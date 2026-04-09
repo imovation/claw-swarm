@@ -1,0 +1,91 @@
+#!/bin/bash
+# bin/claw-matrix-profile — Matrix 资料设置工具
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+usage() {
+    echo "用法: $(basename "$0") <PROFILE> <COMMAND> [OPTIONS]"
+    echo ""
+    echo "Matrix 资料设置工具"
+    echo ""
+    echo "命令:"
+    echo "  set-name <NAME>    设置显示名称"
+    echo "  set-avatar <URL>   设置头像 (支持 mxc:// 或 http(s)://)"
+    echo "  get                获取当前资料"
+    echo ""
+    echo "选项:"
+    echo "  --account <id>     指定 Matrix 账号 (多账号时使用)"
+    echo ""
+    echo "示例:"
+    echo "  $(basename "$0") default set-name 'OpenClaw Assistant'"
+    echo "  $(basename "$0") default set-avatar https://example.org/avatar.png"
+    echo "  $(basename "$0") default get"
+    exit 1
+}
+
+if [ "$#" -lt 2 ]; then
+    usage
+fi
+
+PROFILE="$1"
+COMMAND="$2"
+shift 2
+
+ACCOUNT=""
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --account) ACCOUNT="$2"; shift 2 ;;
+        *) break ;;
+    esac
+done
+
+resolve_pod "$PROFILE"
+
+export OPENCLAW_STATE_DIR="$DIR"
+export OPENCLAW_CONFIG_PATH="$DIR/openclaw.json"
+export TMPDIR="$DIR/runtime/tmp"
+export XDG_CONFIG_HOME="$DIR/runtime/config"
+export XDG_CACHE_HOME="$DIR/runtime/cache"
+export XDG_DATA_HOME="$DIR/runtime/data"
+
+NODE_BIN=$(get_node_binary)
+CLAW_BIN=$(get_openclaw_binary)
+
+ACCOUNT_ARG=""
+[ -n "$ACCOUNT" ] && ACCOUNT_ARG="--account $ACCOUNT"
+
+echo "👤 Matrix 资料管理 (Pod: $PROFILE)"
+echo "========================================"
+
+case "$COMMAND" in
+    set-name)
+        if [ -z "${1:-}" ]; then
+            echo "错误: set-name 需要名称参数"
+            exit 1
+        fi
+        echo ""
+        echo "✏️  正在设置显示名称: $1"
+        $NODE_BIN $CLAW_BIN matrix profile set --name "$1" $ACCOUNT_ARG
+        ;;
+    set-avatar)
+        if [ -z "${1:-}" ]; then
+            echo "错误: set-avatar 需要头像 URL 参数"
+            exit 1
+        fi
+        echo ""
+        echo "🖼️  正在设置头像: $1"
+        $NODE_BIN $CLAW_BIN matrix profile set --avatar-url "$1" $ACCOUNT_ARG
+        ;;
+    get)
+        echo ""
+        echo "📋 正在获取当前资料..."
+        $NODE_BIN $CLAW_BIN matrix profile get $ACCOUNT_ARG
+        ;;
+    *)
+        echo "未知命令: $COMMAND"
+        usage
+        ;;
+esac

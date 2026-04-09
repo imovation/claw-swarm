@@ -1,0 +1,508 @@
+#!/bin/bash
+# bin/claw-matrix-add — 交互式添加 Matrix 账号到 Pod
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/pod_utils.sh"
+
+usage() {
+    echo "用法: $(basename "$0") <PROFILE> [OPTIONS]"
+    echo ""
+    echo "添加/更新 Matrix 渠道配置到 Pod"
+    echo ""
+    echo "选项:"
+    echo "  --config-file FILE    从 JSON 文件读取完整配置"
+    echo "  --homeserver URL      Matrix homeserver 地址"
+    echo "  --token TOKEN        访问令牌"
+    echo "  --user-id ID         Matrix 用户 ID (密码认证时需要)"
+    echo "  --password PASS      密码 (密码认证时需要)"
+    echo "  --device-name NAME   设备显示名称"
+    echo "  --encryption         启用 E2EE 加密"
+    echo "  --auto-join MODE     自动加入策略: always|allowlist|off"
+    echo "  --dm-policy POLICY   私信策略: pairing|allowlist|open|disabled"
+    echo "  --dm-allow-from      私信允许列表 (逗号分隔)"
+    echo "  --session-scope      会话作用域: per-user|per-room"
+    echo "  --dm-thread-replies  私信线程策略: off|inbound|always"
+    echo "  --group-policy       群组策略: open|allowlist|disabled"
+    echo "  --group-allow-from   群组允许列表 (逗号分隔)"
+    echo "  --auto-join-allow    自动加入允许列表 (逗号分隔)"
+    echo "  --history-limit      历史消息数量限制"
+    echo "  --streaming          流式预览: off|partial|quiet"
+    echo "  --block-streaming    启用块流式传输"
+    echo "  --thread-replies     线程回复策略: off|inbound|always"
+    echo "  --thread-bindings    启用线程绑定"
+    echo "  --idle-hours         空闲超时小时数"
+    echo "  --max-age-hours      最大会话生命周期小时数"
+    echo "  --spawn-subagents    允许子智能体会话"
+    echo "  --spawn-acp          允许 ACP 会话绑定"
+    echo "  --exec-approvals     执行审批: auto|true|false"
+    echo "  --exec-target        审批目标: dm|channel|both"
+    echo "  --proxy              HTTP 代理 URL"
+    echo "  --allow-private      允许连接私有网络"
+    echo "  --default-account    默认账号 ID (多账号时)"
+    echo "  --markdown           启用 Markdown 渲染"
+    exit 1
+}
+
+if [ "$#" -lt 1 ]; then
+    usage
+fi
+
+PROFILE="$1"
+shift
+
+CONFIG_FILE=""
+HOMESERVER=""
+TOKEN=""
+USER_ID=""
+PASSWORD=""
+DEVICE_NAME="OpenClaw Gateway"
+ENCRYPTION=""
+AUTO_JOIN=""
+DM_POLICY=""
+DM_ALLOW_FROM=""
+SESSION_SCOPE=""
+DM_THREAD_REPLIES=""
+GROUP_POLICY=""
+GROUP_ALLOW_FROM=""
+AUTO_JOIN_ALLOW=""
+HISTORY_LIMIT=""
+STREAMING=""
+BLOCK_STREAMING=""
+THREAD_REPLIES=""
+THREAD_BINDINGS=""
+IDLE_HOURS=""
+MAX_AGE_HOURS=""
+SPAWN_SUBAGENTS=""
+SPAWN_ACP=""
+EXEC_APPROVALS=""
+EXEC_TARGET=""
+PROXY=""
+ALLOW_PRIVATE=""
+DEFAULT_ACCOUNT=""
+MARKDOWN=""
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --config-file) CONFIG_FILE="$2"; shift 2 ;;
+        --homeserver) HOMESERVER="$2"; shift 2 ;;
+        --token) TOKEN="$2"; shift 2 ;;
+        --user-id) USER_ID="$2"; shift 2 ;;
+        --password) PASSWORD="$2"; shift 2 ;;
+        --device-name) DEVICE_NAME="$2"; shift 2 ;;
+        --encryption) ENCRYPTION="true"; shift ;;
+        --auto-join) AUTO_JOIN="$2"; shift 2 ;;
+        --dm-policy) DM_POLICY="$2"; shift 2 ;;
+        --dm-allow-from) DM_ALLOW_FROM="$2"; shift 2 ;;
+        --session-scope) SESSION_SCOPE="$2"; shift 2 ;;
+        --dm-thread-replies) DM_THREAD_REPLIES="$2"; shift 2 ;;
+        --group-policy) GROUP_POLICY="$2"; shift 2 ;;
+        --group-allow-from) GROUP_ALLOW_FROM="$2"; shift 2 ;;
+        --auto-join-allow) AUTO_JOIN_ALLOW="$2"; shift 2 ;;
+        --history-limit) HISTORY_LIMIT="$2"; shift 2 ;;
+        --streaming) STREAMING="$2"; shift 2 ;;
+        --block-streaming) BLOCK_STREAMING="true"; shift ;;
+        --thread-replies) THREAD_REPLIES="$2"; shift 2 ;;
+        --thread-bindings) THREAD_BINDINGS="true"; shift ;;
+        --idle-hours) IDLE_HOURS="$2"; shift 2 ;;
+        --max-age-hours) MAX_AGE_HOURS="$2"; shift 2 ;;
+        --spawn-subagents) SPAWN_SUBAGENTS="true"; shift ;;
+        --spawn-acp) SPAWN_ACP="true"; shift ;;
+        --exec-approvals) EXEC_APPROVALS="$2"; shift 2 ;;
+        --exec-target) EXEC_TARGET="$2"; shift 2 ;;
+        --proxy) PROXY="$2"; shift 2 ;;
+        --allow-private) ALLOW_PRIVATE="true"; shift ;;
+        --default-account) DEFAULT_ACCOUNT="$2"; shift 2 ;;
+        --markdown) MARKDOWN="true"; shift ;;
+        *) echo "未知选项: $1"; usage ;;
+    esac
+done
+
+resolve_pod "$PROFILE"
+POD_CONFIG_FILE="$DIR/openclaw.json"
+ENV_FILE="$DIR/runtime/env"
+
+if [ ! -f "$POD_CONFIG_FILE" ]; then
+    echo "❌ 错误: Pod '$PROFILE' 的配置文件不存在: $POD_CONFIG_FILE"
+    exit 1
+fi
+
+echo "🔧 正在为 Pod '$PROFILE' 配置 Matrix 渠道..."
+echo ""
+
+# 辅助函数：解析 SecretRef (环境变量引用)
+# 支持格式: ${VAR_NAME} 或 env:VAR_NAME
+resolve_secret_ref() {
+    local value="$1"
+    if [[ "$value" == "\${"*"}" ]]; then
+        # 格式: ${VAR_NAME}
+        local var_name="${value#\$\{}"
+        var_name="${var_name%\}}"
+        echo "${!var_name}"
+    elif [[ "$value" == "env:"* ]]; then
+        # 格式: env:VAR_NAME
+        local var_name="${value#env:}"
+        echo "${!var_name}"
+    else
+        echo "$value"
+    fi
+}
+
+# 解析配置中的 SecretRef 值
+resolve_matrix_secrets() {
+    local json_config="$1"
+    python3 << EOF
+import json
+import os
+import re
+
+def resolve_env_var(value):
+    if not isinstance(value, str):
+        return value
+    # 匹配 ${VAR_NAME} 或 env:VAR_NAME
+    pattern = r'\$\{([^}]+)\}'
+    matches = re.findall(pattern, value)
+    for var_name in matches:
+        env_val = os.environ.get(var_name, '')
+        if env_val:
+            value = value.replace(f'${{{var_name}}}', env_val)
+    if value.startswith('env:'):
+        var_name = value[4:]
+        env_val = os.environ.get(var_name, '')
+        if env_val:
+            return env_val
+        return ''
+    return value
+
+config = json.loads('''$json_config''')
+resolved = {}
+
+for key, value in config.items():
+    if key in ['accessToken', 'password', 'homeserver', 'userId', 'deviceId', 'deviceName', 'proxy']:
+        resolved[key] = resolve_env_var(value)
+    else:
+        resolved[key] = value
+
+print(json.dumps(resolved))
+EOF
+}
+
+# 注入 Matrix 环境变量到 Pod 的 runtime/env 文件
+inject_matrix_env_vars() {
+    echo ""
+    echo "📥 正在注入 Matrix 环境变量..."
+    
+    # 读取已保存的配置
+    python3 << EOF
+import json
+import os
+
+config_path = os.environ.get('POD_CONFIG_FILE', '$POD_CONFIG_FILE')
+try:
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    matrix = config.get('channels', {}).get('matrix', {})
+    if not matrix:
+        print("NO_MATRIX")
+        exit(0)
+    
+    # 收集环境变量
+    env_vars = []
+    
+    if matrix.get('homeserver'):
+        env_vars.append(f"MATRIX_HOMESERVER={matrix['homeserver']}")
+    if matrix.get('accessToken'):
+        env_vars.append(f"MATRIX_ACCESS_TOKEN={matrix['accessToken']}")
+    if matrix.get('userId'):
+        env_vars.append(f"MATRIX_USER_ID={matrix['userId']}")
+    if matrix.get('password'):
+        env_vars.append(f"MATRIX_PASSWORD={matrix['password']}")
+    if matrix.get('deviceId'):
+        env_vars.append(f"MATRIX_DEVICE_ID={matrix['deviceId']}")
+    if matrix.get('deviceName'):
+        env_vars.append(f"MATRIX_DEVICE_NAME={matrix['deviceName']}")
+    if matrix.get('proxy'):
+        env_vars.append(f"MATRIX_PROXY={matrix['proxy']}")
+    
+    # 多账号环境变量
+    accounts = matrix.get('accounts', {})
+    for account_id, account_config in accounts.items():
+        # 转义账号 ID 中的特殊字符
+        account_escaped = account_id.replace('-', '_X2D_').replace('.', '_')
+        if account_config.get('homeserver'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_HOMESERVER={account_config['homeserver']}")
+        if account_config.get('accessToken'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_ACCESS_TOKEN={account_config['accessToken']}")
+        if account_config.get('userId'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_USER_ID={account_config['userId']}")
+        if account_config.get('password'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_PASSWORD={account_config['password']}")
+    
+    if env_vars:
+        print('\n'.join(env_vars))
+    else:
+        print("NO_ENV_VARS")
+except Exception as e:
+    print(f"ERROR: {e}")
+EOF
+    
+    local env_output=$(python3 << EOF
+import json
+import os
+
+config_path = '$POD_CONFIG_FILE'
+try:
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    matrix = config.get('channels', {}).get('matrix', {})
+    if not matrix:
+        print("NO_MATRIX")
+        exit(0)
+    
+    env_vars = []
+    
+    if matrix.get('homeserver'):
+        env_vars.append(f"MATRIX_HOMESERVER={matrix['homeserver']}")
+    if matrix.get('accessToken'):
+        env_vars.append(f"MATRIX_ACCESS_TOKEN={matrix['accessToken']}")
+    if matrix.get('userId'):
+        env_vars.append(f"MATRIX_USER_ID={matrix['userId']}")
+    if matrix.get('password'):
+        env_vars.append(f"MATRIX_PASSWORD={matrix['password']}")
+    if matrix.get('deviceId'):
+        env_vars.append(f"MATRIX_DEVICE_ID={matrix['deviceId']}")
+    if matrix.get('deviceName'):
+        env_vars.append(f"MATRIX_DEVICE_NAME={matrix['deviceName']}")
+    if matrix.get('proxy'):
+        env_vars.append(f"MATRIX_PROXY={matrix['proxy']}")
+    
+    accounts = matrix.get('accounts', {})
+    for account_id, account_config in accounts.items():
+        account_escaped = account_id.replace('-', '_X2D_').replace('.', '_')
+        if account_config.get('homeserver'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_HOMESERVER={account_config['homeserver']}")
+        if account_config.get('accessToken'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_ACCESS_TOKEN={account_config['accessToken']}")
+        if account_config.get('userId'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_USER_ID={account_config['userId']}")
+        if account_config.get('password'):
+            env_vars.append(f"MATRIX_{account_escaped.upper()}_PASSWORD={account_config['password']}")
+    
+    if env_vars:
+        print('\n'.join(env_vars))
+    else:
+        print("NO_ENV_VARS")
+except Exception as e:
+    print(f"ERROR: {e}")
+EOF
+)
+    
+    if [ "$env_output" = "NO_MATRIX" ] || [ "$env_output" = "NO_ENV_VARS" ]; then
+        echo "   ℹ️  无需注入 Matrix 环境变量。"
+        return
+    elif [[ "$env_output" == ERROR:* ]]; then
+        echo "   ⚠️  环境变量注入失败: ${env_output#ERROR: }"
+        return
+    fi
+    
+    # 追加到 env 文件
+    echo "$env_output" >> "$ENV_FILE"
+    echo "   ✅ Matrix 环境变量已注入。"
+}
+
+TEMP_FILE=$(mktemp)
+
+# 如果提供了配置文件，从文件读取配置
+if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+    # 读取配置并解析 SecretRef
+    CONFIG_JSON=$(cat "$CONFIG_FILE")
+    RESOLVED_JSON=$(resolve_matrix_secrets "$CONFIG_JSON")
+    
+    # 从解析后的 JSON 读取完整配置
+    python3 << PYTHON_EOF
+import json
+import sys
+
+with open("$POD_CONFIG_FILE", "r") as f:
+    config = json.load(f)
+
+if "channels" not in config:
+    config["channels"] = {}
+
+if "matrix" not in config["channels"]:
+    config["channels"]["matrix"] = {}
+
+matrix = config["channels"]["matrix"]
+
+# 读取已解析的配置
+full_config = json.loads('''$RESOLVED_JSON''')
+
+# 合并所有配置项
+for key, value in full_config.items():
+    if value is not None and value != "" and value != [] and value != {}:
+        if key == "dm" and isinstance(value, dict):
+            if "dm" not in matrix:
+                matrix["dm"] = {}
+            for dk, dv in value.items():
+                if dv is not None:
+                    matrix["dm"][dk] = dv
+        elif key == "threadBindings" and isinstance(value, dict):
+            if "threadBindings" not in matrix:
+                matrix["threadBindings"] = {}
+            for dk, dv in value.items():
+                if dv is not None:
+                    matrix["threadBindings"][dk] = dv
+        elif key == "groups" and isinstance(value, dict):
+            matrix["groups"] = value
+        elif key == "accounts" and isinstance(value, dict):
+            matrix["accounts"] = value
+        elif key == "execApprovals" and isinstance(value, dict):
+            if "execApprovals" not in matrix:
+                matrix["execApprovals"] = {}
+            for dk, dv in value.items():
+                if dv is not None:
+                    matrix["execApprovals"][dk] = dv
+        elif key == "network" and isinstance(value, dict):
+            matrix["network"] = value
+        elif key == "markdown" and isinstance(value, dict):
+            matrix["markdown"] = value
+        else:
+            matrix[key] = value
+
+matrix["enabled"] = True
+
+with open("$TEMP_FILE", "w") as f:
+    json.dump(config, f, indent=2)
+
+print("OK")
+PYTHON_EOF
+
+else
+    # 使用命令行参数构建配置
+    python3 << PYTHON_EOF
+import json
+import sys
+
+with open("$POD_CONFIG_FILE", "r") as f:
+    config = json.load(f)
+
+if "channels" not in config:
+    config["channels"] = {}
+
+if "matrix" not in config["channels"]:
+    config["channels"]["matrix"] = {}
+
+matrix = config["channels"]["matrix"]
+
+# 基本配置
+config_map = {
+    "homeserver": "$HOMESERVER",
+    "accessToken": "$TOKEN",
+    "userId": "$USER_ID",
+    "password": "$PASSWORD",
+    "deviceName": "$DEVICE_NAME",
+    "autoJoin": "$AUTO_JOIN",
+    "groupPolicy": "$GROUP_POLICY",
+    "historyLimit": "$HISTORY_LIMIT",
+    "streaming": "$STREAMING",
+    "threadReplies": "$THREAD_REPLIES",
+    "proxy": "$PROXY",
+    "defaultAccount": "$DEFAULT_ACCOUNT",
+}
+
+for key, value in config_map.items():
+    if value and value != "":
+        matrix[key] = value
+
+# 布尔值配置
+bool_map = {
+    "encryption": "$ENCRYPTION",
+    "blockStreaming": "$BLOCK_STREAMING",
+    "threadBindings": "$THREAD_BINDINGS",
+    "spawnSubagentSessions": "$SPAWN_SUBAGENTS",
+    "spawnAcpSessions": "$SPAWN_ACP",
+    "allowPrivateNetwork": "$ALLOW_PRIVATE",
+    "markdown": "$MARKDOWN",
+}
+
+for key, value in bool_map.items():
+    if value == "true":
+        matrix[key] = True
+
+# 整数配置
+int_map = {
+    "idleHours": "$IDLE_HOURS",
+    "maxAgeHours": "$MAX_AGE_HOURS",
+}
+
+for key, value in int_map.items():
+    if value and value.isdigit():
+        matrix[key] = int(value)
+
+# DM 配置
+if "$DM_POLICY" or "$DM_ALLOW_FROM" or "$SESSION_SCOPE" or "$DM_THREAD_REPLIES":
+    dm = {}
+    if "$DM_POLICY":
+        dm["policy"] = "$DM_POLICY"
+    if "$DM_ALLOW_FROM":
+        dm["allowFrom"] = "$DM_ALLOW_FROM".split(",")
+    if "$SESSION_SCOPE":
+        dm["sessionScope"] = "$SESSION_SCOPE"
+    if "$DM_THREAD_REPLIES":
+        dm["threadReplies"] = "$DM_THREAD_REPLIES"
+    matrix["dm"] = dm
+
+# Group allow from
+if "$GROUP_ALLOW_FROM":
+    matrix["groupAllowFrom"] = "$GROUP_ALLOW_FROM".split(",")
+
+# Auto join allowlist
+if "$AUTO_JOIN_ALLOW":
+    matrix["autoJoinAllowlist"] = "$AUTO_JOIN_ALLOW".split(",")
+
+# Exec approvals
+if "$EXEC_APPROVALS" or "$EXEC_TARGET":
+    exec_approvals = {}
+    if "$EXEC_APPROVALS":
+        exec_approvals["enabled"] = "$EXEC_APPROVALS"
+    if "$EXEC_TARGET":
+        exec_approvals["target"] = "$EXEC_TARGET"
+    matrix["execApprovals"] = exec_approvals
+
+# Network
+if "$ALLOW_PRIVATE" == "true":
+    matrix["network"] = {"dangerouslyAllowPrivateNetwork": True}
+
+matrix["enabled"] = True
+
+with open("$TEMP_FILE", "w") as f:
+    json.dump(config, f, indent=2)
+
+print("OK")
+PYTHON_EOF
+fi
+
+if [ $? -eq 0 ] && [ -f "$TEMP_FILE" ]; then
+    mv "$TEMP_FILE" "$POD_CONFIG_FILE"
+    echo "✅ Matrix 配置已保存到 $POD_CONFIG_FILE"
+    
+    # 注入 Matrix 环境变量到 Pod 环境
+    inject_matrix_env_vars
+    
+    echo ""
+    echo "🔄 正在重启 Pod '$PROFILE'..."
+    systemctl --user restart "$SERVICE_NAME.service"
+    sleep 3
+    
+    if systemctl --user is-active --quiet "$SERVICE_NAME.service"; then
+        echo "✅ Pod '$PROFILE' 已重启。"
+    else
+        echo "⚠️  Pod '$PROFILE' 启动可能有问题，请检查: journalctl --user -u $SERVICE_NAME.service -n 50"
+    fi
+else
+    echo "❌ 错误: 更新配置文件失败"
+    rm -f "$TEMP_FILE"
+    exit 1
+fi

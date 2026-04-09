@@ -76,4 +76,76 @@ When users report model issues (e.g., "stuck on big-pickle"), use the **`opencod
 - **Naming**: Service units MUST match `openclaw-gateway-<name>.service`.
 
 ---
+
+## 📱 Matrix Channel Support
+
+### Declarative Configuration (Recommended)
+Add Matrix config to `swarm.yaml`:
+
+```yaml
+pods:
+  - name: main
+    matrix:
+      enabled: true
+      homeserver: https://matrix.org
+      accessToken: "${MATRIX_TOKEN}"  # SecretRef format
+      encryption: true
+      dm:
+        policy: pairing
+      autoJoin: "allowlist"
+```
+
+### CLI Management
+
+- **Add/Update Matrix Config**:
+  ```bash
+  ./bin/claw-matrix-add <PROFILE> --homeserver <URL> --token <TOKEN> --encryption
+  ```
+
+- **E2EE Verification**:
+  ```bash
+  ./bin/claw-matrix-verify <PROFILE> status
+  ./bin/claw-matrix-verify <PROFILE> status --verbose
+  ./bin/claw-matrix-verify <PROFILE> bootstrap
+  ./bin/claw-matrix-verify <PROFILE> backup status
+  ```
+
+- **Device Management**:
+  ```bash
+  ./bin/claw-matrix-devices <PROFILE> list
+  ./bin/claw-matrix-devices <PROFILE> prune-stale
+  ```
+
+- **Pairing Approval**:
+  ```bash
+  ./bin/claw-matrix-pairing <PROFILE> list
+  ./bin/claw-matrix-pairing <PROFILE> approve <CODE>
+  ```
+
+- **Profile Settings**:
+  ```bash
+  ./bin/claw-matrix-profile <PROFILE> set-name "Bot Name"
+  ./bin/claw-matrix-profile <PROFILE> set-avatar <URL>
+  ```
+
+- **Direct Message Repair**:
+  ```bash
+  ./bin/claw-matrix-direct <PROFILE> inspect --user-id @user:server
+  ./bin/claw-matrix-direct <PROFILE> repair --user-id @user:server
+  ```
+
+### Supported Configuration Fields
+
+All Matrix configuration fields from official docs are supported:
+- Authentication: `accessToken`, `password`, `userId`, multi-account
+- Encryption: `encryption`, `startupVerification`
+- DM: `dm.policy`, `dm.allowFrom`, `dm.sessionScope`, `dm.threadReplies`
+- Groups: `groupPolicy`, `groupAllowFrom`, `autoJoin`, `historyLimit`
+- Messaging: `streaming`, `blockStreaming`, `threadReplies`, `markdown`
+- Thread Bindings: `threadBindings.enabled`, `idleHours`, `maxAgeHours`
+- Exec Approvals: `execApprovals.enabled`, `approvers`, `target`
+- Network: `proxy`, `network.dangerouslyAllowPrivateNetwork`
+- Per-room: `groups.<room>.*`
+
+---
 *Note: Consult `docs/ARCHITECTURE.md` for low-level design details.*
