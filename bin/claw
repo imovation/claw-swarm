@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""
+bin/claw — Claw-Swarm 统一 CLI 入口 (路由分发器)
+类似 kubectl，所有子命令均路由至 modules/ 下对应功能层的实现。
+
+用法:
+  claw apply               — 调和集群状态 (orchestration/reconciler)
+  claw status              — 查看集群看板 (orchestration)
+  claw tui <NAME>          — 进入实例 TUI (orchestration)
+  claw port <NAME> <PORT>  — 变更端口     (network-mesh/port-manager)
+  claw repair <NAME>       — 修复实例     (orchestration/pod-provisioner)
+  claw rm <NAME>           — 销毁实例     (orchestration/pod-provisioner)
+  claw ps                  — 精细进程状态 (orchestration)
+  claw matrix <SUB> ...    — Matrix 渠道管理 (matrix-channel)
+"""
+import sys
+import os
+import subprocess
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+
+# ── 子命令路由表 ───────────────────────────────────────────────────────────────
+# 格式: 子命令 -> 对应的遗留脚本路径（重构期间保持兼容，后续逐步替换为模块路径）
+ROUTES = {
+    "apply":   SCRIPT_DIR / "claw-apply",
+    "status":  SCRIPT_DIR / "claw-status",
+    "tui":     SCRIPT_DIR / "claw-tui",
+    "port":    SCRIPT_DIR / "claw-port",
+    "repair":  SCRIPT_DIR / "claw-repair",
+    "rm":      SCRIPT_DIR / "claw-rm",
+    "ps":      SCRIPT_DIR / "claw-ps",
+}
+
+# Matrix 子命令路由
+MATRIX_ROUTES = {
+    "add":      SCRIPT_DIR / "claw-matrix-add",
+    "verify":   SCRIPT_DIR / "claw-matrix-verify",
+    "devices":  SCRIPT_DIR / "claw-matrix-devices",
+    "pairing":  SCRIPT_DIR / "claw-matrix-pairing",
+    "profile":  SCRIPT_DIR / "claw-matrix-profile",
+    "direct":   SCRIPT_DIR / "claw-matrix-direct",
+    "token":    SCRIPT_DIR / "claw-matrix-token",
+}
+
+def print_help():
+    print(__doc__)
+
+def route_matrix(args):
+    """路由 matrix 子命令。"""
+    if not args:
+        print("用法: claw matrix <子命令> [参数...]")
+        print("可用子命令:", ", ".join(MATRIX_ROUTES.keys()))
+        sys.exit(1)
+
+    sub = args[0]
+    if sub not in MATRIX_ROUTES:
+        print(f"❌ 未知的 matrix 子命令: '{sub}'")
+        print("可用子命令:", ", ".join(MATRIX_ROUTES.keys()))
+        sys.exit(1)
+
+    target = MATRIX_ROUTES[sub]
+    if not target.exists():
+        print(f"❌ 找不到对应脚本: {target}")
+        sys.exit(1)
+
+    os.execv(str(target), [str(target)] + args[1:])
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+        print_help()
+        sys.exit(0)
+
+    cmd = sys.argv[1]
+    remaining = sys.argv[2:]
+
+    # Matrix 子命令特殊路由
+    if cmd == "matrix":
+        route_matrix(remaining)
+        return
+
+    # 通用子命令路由
+    if cmd not in ROUTES:
+        print(f"❌ 未知子命令: '{cmd}'")
+        print("可用子命令:", ", ".join(list(ROUTES.keys()) + ["matrix"]))
+        sys.exit(1)
+
+    target = ROUTES[cmd]
+    if not target.exists():
+        print(f"❌ 找不到对应脚本: {target}")
+        sys.exit(1)
+
+    # 使用 execv 替换当前进程，透传所有参数
+    os.execv(str(target), [str(target)] + remaining)
+
+if __name__ == "__main__":
+    main()
