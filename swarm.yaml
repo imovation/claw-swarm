@@ -155,8 +155,6 @@ pods:
   token: 'aimee666666'
   resources:
     browser: dedicated
-  plugins:
-    - openclaw-lark
   
   # ---- aimee 的 Matrix 配置 (多账号示例) ----
   # matrix:

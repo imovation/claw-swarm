@@ -33,22 +33,21 @@
       │    ├── pod_utils.sh      # Bash 共享函数
       │    ├── pod_utils.py      # Python 共享函数
       │    └── matrix_utils.sh   # Matrix 工具函数
-      └── bin/
-           ├── claw-apply        # 控制器 (Controller/Reconciler) ← 支持 Matrix 自动配置
-           ├── clawctl           # 供应执行器 (Provisioner/Actuator) ← 使用共享库
-           ├── claw-repair       # 修复器 ← 修复了逻辑双执行Bug
-           ├── claw-port         # 端口变更器 ← 实现了完整功能
-           ├── claw-rm           # 实例销毁工具
-           ├── claw-ps           # 精细进程状态监控
-           ├── claw-status       # 实时监控看板 (Dashboard) ← 显示 Matrix 状态
-           ├── claw-tui          # 终端交互快捷入口
-           ├── claw-lark         # 飞书插件一键配置向导
-           ├── claw-matrix-add        # Matrix 配置添加/更新
-           ├── claw-matrix-verify    # Matrix E2EE 验证管理
-           ├── claw-matrix-devices   # Matrix 设备管理
-           ├── claw-matrix-pairing   # Matrix 配对审批
-           ├── claw-matrix-profile   # Matrix 资料设置
-           └── claw-matrix-direct    # Matrix 私信修复
+       └── bin/
+            ├── claw-apply        # 控制器 (Controller/Reconciler) ← 支持 Matrix 自动配置
+            ├── clawctl           # 供应执行器 (Provisioner/Actuator) ← 使用共享库
+            ├── claw-repair       # 修复器 ← 修复了逻辑双执行Bug
+            ├── claw-port         # 端口变更器 ← 实现了完整功能
+            ├── claw-rm           # 实例销毁工具
+            ├── claw-ps           # 精细进程状态监控
+            ├── claw-status       # 实时监控看板 (Dashboard) ← 显示 Matrix 状态
+            ├── claw-tui          # 终端交互快捷入口
+            ├── claw-matrix-add        # Matrix 配置添加/更新
+            ├── claw-matrix-verify    # Matrix E2EE 验证管理
+            ├── claw-matrix-devices   # Matrix 设备管理
+            ├── claw-matrix-pairing   # Matrix 配对审批
+            ├── claw-matrix-profile   # Matrix 资料设置
+            └── claw-matrix-direct    # Matrix 私信修复
 ```
 
 ## 3. 声明式增强特性

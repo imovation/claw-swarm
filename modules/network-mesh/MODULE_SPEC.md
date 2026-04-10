@@ -1,7 +1,7 @@
 # Network-Mesh (网络与代理) 模块规范
 
 ## 一、 模块定位
-本模块负责 Claw-Swarm 集群中所有与**网络通信**相关的基础设施：包括全局代理的统一注入、Pod 间的端口分配与变更管理，以及 Feishu/Lark 等对外渠道的接入配置。
+本模块负责 Claw-Swarm 集群中所有与**网络通信**相关的基础设施：包括全局代理的统一注入、Pod 间的端口分配与变更管理。
 
 ## 二、 声明式配置入口
 所有代理行为均通过 `swarm.yaml` 的 `global.proxy` 字段统一声明，由 `claw apply` 自动注入到每个 Pod 的运行时环境。
@@ -28,8 +28,3 @@ global:
 | 文件 | 归属模块层 |
 |---|---|
 | `bin/claw-port` | port-manager |
-
-## 六、 Feishu/Lark 渠道 (待迁移)
-- `bin/claw-lark` — Feishu 机器人接入配置
-- `bin/claw-bot-add` — Bot 添加与绑定
-- `bin/claw-agent-create` — Agent 创建与绑定
