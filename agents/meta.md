@@ -45,24 +45,32 @@
 
 **记录流程**：
 ```
-用户提出需求 → 创建 REQUESTS.md → 迭代 SPEC.md → 编写代码
+用户提出需求 → 创建/更新 REQUESTS.md → 迭代 SPEC.md → 编写代码
 ```
 
-**REQUESTS.md 模板**：
-```markdown
-# 原始需求记录
+### 三层 REQUESTS.md 定位
 
+| 层级 | 位置 | 记录内容 |
+|------|------|----------|
+| 系统层 | `./REQUESTS.md` | 跨模块架构变更、系统规范迭代 |
+| 模块层 | `modules/*/REQUESTS.md` | 模块级需求、模块接口变更 |
+| 功能层 | `modules/*/*/REQUESTS.md` | 功能级需求、功能实现变更 |
+
+### 触发规则
+
+- **系统级需求** → 根目录 `./REQUESTS.md`
+- **模块级需求** → 对应模块的 `REQUESTS.md`
+- **功能级需求** → 对应功能目录的 `REQUESTS.md`
+
+### REQUESTS.md 模板
+
+```markdown
 ## [日期] 第N次迭代
-**来源**：人类直接描述 / 人类反馈 / Issue
+**需求来源**：人类直接描述 / 人类反馈 / Issue
 **需求**：具体描述
 **期望结果**：预期输出或行为
 **关联 Spec**：对应的 SPEC.md 版本
 ```
-
-**触发规则**：
-- 首次需求：创建功能目录的 `REQUESTS.md`
-- 迭代需求：追加到现有 `REQUESTS.md`，标注日期
-- 每次 Spec 变更需在 REQUESTS.md 中引用对应需求
 
 ---
 
