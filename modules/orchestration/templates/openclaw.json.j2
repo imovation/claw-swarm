@@ -1,0 +1,16 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "./workspace"
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "{{ token }}"
+    },
+    "port": {{ port }},
+    "bind": "loopback"
+  }
+}

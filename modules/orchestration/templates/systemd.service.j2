@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenClaw Gateway (profile: {{ profile }}, claw-swarm managed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile={{ env_file }}
+ExecStart={{ node_bin }} {{ openclaw_bin }} --profile {{ profile }} gateway run --port {{ port }} --bind loopback
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+TimeoutStartSec=30
+SuccessExitStatus=0 143
+KillMode=control-group
+
+[Install]
+WantedBy=default.target
