@@ -16,20 +16,20 @@ global:
 
 ## 三、 CLI 入口与路由
 通过统一入口 `bin/claw` 路由至本模块：
-- `claw port <NAME> <PORT>` — 变更端口（同步更新 Systemd 服务文件与 swarm.yaml 声明）
+- `claw port <NAME> <PORT>` — 变更端口 (port-manager)
 
 ## 四、 下属功能树 (Features)
 | 功能目录 | 状态 | 说明 |
 |---|---|---|
-| `proxy-injector/` | ✅ 已迁移 | 代理配置解析与幂等注入（纯 Python 实现） |
-| `port-manager/` | 待迁移 | 端口声明与变更管理 |
+| `proxy-injector/` | ✅ 已完成 | 代理配置解析与幂等注入 (纯 Python) |
+| `port-manager/` | ✅ 已完成 | 端口声明与变更管理 (冲突检测 + swarm.yaml 同步) |
 
-## 五、 遗留脚本清单
-| 文件 | 状态 |
+## 五、 遗留文件清单 (已废弃)
+| 文件 | 归属模块层 |
 |---|---|
-| `bin/claw-port` | 待迁移 → port-manager/ |
+| `bin/claw-port` | port-manager |
 
-## 六、 Feishu/Lark 渠道 (暂未迁移)
+## 六、 Feishu/Lark 渠道 (待迁移)
 - `bin/claw-lark` — Feishu 机器人接入配置
 - `bin/claw-bot-add` — Bot 添加与绑定
 - `bin/claw-agent-create` — Agent 创建与绑定

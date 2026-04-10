@@ -23,10 +23,10 @@
 | `pod-provisioner/` | ✅ 已迁移 | 负责物理创建、环境注入、插件同步、Systemd 管理 |
 | `templates/` | ✅ 已迁移 | Jinja2 模板引擎（Systemd 服务模板、openclaw.json 模板） |
 
-## 五、 遗留脚本清单
-| 文件 | 状态 |
+## 五、 遗留文件清单 (已废弃)
+| 文件 | 归属模块层 |
 |---|---|
-| `bin/clawctl` | ⚠️ 已废弃，推荐使用 `modules/orchestration/pod-provisioner/provisioner.py` |
-| `bin/claw-apply` | ⚠️ 已废弃，推荐使用 `modules/orchestration/reconciler/reconciler.py` |
-| `bin/claw-repair` | 待迁移 |
-| `bin/claw-rm` | 待迁移 |
+| `bin/clawctl` | pod-provisioner |
+| `bin/claw-apply` | reconciler |
+| `bin/claw-repair` | pod-provisioner |
+| `bin/claw-rm` | pod-provisioner |

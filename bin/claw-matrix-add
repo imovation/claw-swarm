@@ -1,5 +1,9 @@
 #!/bin/bash
 # bin/claw-matrix-add — 交互式添加 Matrix 账号到 Pod
+#
+# ⚠️  [已废弃 DEPRECATED] 本脚本已迁移至:
+#     modules/matrix-channel/account-manager/account_manager.py
+#     请使用 bin/claw matrix add 命令，或直接调用模块层代码。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

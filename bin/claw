@@ -7,11 +7,14 @@ bin/claw — Claw-Swarm 统一 CLI 入口 (路由分发器)
   claw apply               — 调和集群状态 (orchestration/reconciler)
   claw status              — 查看集群看板 (orchestration)
   claw tui <NAME>          — 进入实例 TUI (orchestration)
-  claw port <NAME> <PORT>  — 变更端口     (network-mesh/port-manager)
-  claw repair <NAME>       — 修复实例     (orchestration/pod-provisioner)
-  claw rm <NAME>           — 销毁实例     (orchestration/pod-provisioner)
+  claw port <NAME> <PORT>  — 变更端口 (network-mesh/port-manager)
+  claw repair <NAME>       — 修复实例 (orchestration/pod-provisioner)
+  claw rm <NAME>           — 销毁实例 (orchestration/pod-provisioner)
   claw ps                  — 精细进程状态 (orchestration)
-  claw matrix <SUB> ...    — Matrix 渠道管理 (matrix-channel)
+  claw matrix add <PROFILE>  — 配置 Matrix 账号 (matrix-channel/account-manager)
+  claw matrix verify <PROFILE> status|bootstrap — E2EE 验证 (matrix-channel/e2ee-verifier)
+  claw matrix devices <PROFILE> list|prune — 设备管理 (matrix-channel/device-manager)
+  claw matrix pairing <PROFILE> list|approve — 配对审批 (matrix-channel/device-manager)
 """
 import sys
 import os
@@ -20,32 +23,35 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
+MODULE_ROOT = PROJECT_ROOT / "modules"
 
 # ── 子命令路由表 ───────────────────────────────────────────────────────────────
-# 格式: 子命令 -> 对应的遗留脚本路径（重构期间保持兼容，后续逐步替换为模块路径）
+# 优先使用 modules/ 层代码，回退到 bin/ 遗留脚本
 ROUTES = {
-    "apply":   SCRIPT_DIR / "claw-apply",
+    "apply":   SCRIPT_DIR / "claw-apply",  # 已重定向到模块层
     "status":  SCRIPT_DIR / "claw-status",
     "tui":     SCRIPT_DIR / "claw-tui",
-    "port":    SCRIPT_DIR / "claw-port",
+    "port":    MODULE_ROOT / "network-mesh/port-manager/port_manager.py",
     "repair":  SCRIPT_DIR / "claw-repair",
     "rm":      SCRIPT_DIR / "claw-rm",
     "ps":      SCRIPT_DIR / "claw-ps",
 }
 
-# Matrix 子命令路由
+# Matrix 子命令路由 (优先模块层)
 MATRIX_ROUTES = {
-    "add":      SCRIPT_DIR / "claw-matrix-add",
-    "verify":   SCRIPT_DIR / "claw-matrix-verify",
-    "devices":  SCRIPT_DIR / "claw-matrix-devices",
-    "pairing":  SCRIPT_DIR / "claw-matrix-pairing",
-    "profile":  SCRIPT_DIR / "claw-matrix-profile",
-    "direct":   SCRIPT_DIR / "claw-matrix-direct",
-    "token":    SCRIPT_DIR / "claw-matrix-token",
+    "add":      MODULE_ROOT / "matrix-channel/account-manager/account_manager.py",
+    "verify":   MODULE_ROOT / "matrix-channel/e2ee-verifier/e2ee_verifier.py",
+    "devices":  MODULE_ROOT / "matrix-channel/device-manager/device_manager.py",
+    "pairing":  MODULE_ROOT / "matrix-channel/device-manager/device_manager.py",
+    "profile":  SCRIPT_DIR / "claw-matrix-profile",  # 暂未迁移
+    "direct":   SCRIPT_DIR / "claw-matrix-direct",   # 暂未迁移
+    "token":    SCRIPT_DIR / "claw-matrix-token",    # 暂未迁移
 }
+
 
 def print_help():
     print(__doc__)
+
 
 def route_matrix(args):
     """路由 matrix 子命令。"""
@@ -62,10 +68,17 @@ def route_matrix(args):
 
     target = MATRIX_ROUTES[sub]
     if not target.exists():
-        print(f"❌ 找不到对应脚本: {target}")
-        sys.exit(1)
+        # 回退到 bin/ 遗留脚本
+        fallback = SCRIPT_DIR / f"claw-matrix-{sub}"
+        if fallback.exists():
+            print(f"⚠️  模块层代码不存在，回退到: {fallback}")
+            target = fallback
+        else:
+            print(f"❌ 找不到对应脚本: {target}")
+            sys.exit(1)
 
-    os.execv(str(target), [str(target)] + args[1:])
+    os.execv(sys.executable, [sys.executable, str(target)] + args[1:])
+
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
@@ -92,7 +105,8 @@ def main():
         sys.exit(1)
 
     # 使用 execv 替换当前进程，透传所有参数
-    os.execv(str(target), [str(target)] + remaining)
+    os.execv(sys.executable, [sys.executable, str(target)] + remaining)
+
 
 if __name__ == "__main__":
     main()

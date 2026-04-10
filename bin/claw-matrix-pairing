@@ -1,5 +1,9 @@
 #!/bin/bash
 # bin/claw-matrix-pairing — Matrix 配对审批管理工具
+#
+# ⚠️  [已废弃 DEPRECATED] 本脚本已迁移至:
+#     modules/matrix-channel/device-manager/device_manager.py
+#     请使用 bin/claw matrix pairing 命令，或直接调用模块层代码。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
