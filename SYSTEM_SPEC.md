@@ -27,9 +27,23 @@ Code (代码/提示词)
 
 | 层级 | 位置 | 职责 |
 |------|------|------|
-| 系统层 | `SYSTEM_SPEC.md`, `AGENTS.md` | 全局规范、模块路由、核心准则 |
+| 系统层 | `SYSTEM_SPEC.md`, `AGENTS.md`, `agents/` | 全局规范、模块路由、核心准则 |
 | 模块层 | `modules/*/MODULE_SPEC.md` | 模块边界、对外接口 |
-| 功能层 | `modules/*/*/SPEC.md` + 代码 | 具体功能实现 |
+| 功能层 | `modules/*/*/` | 具体功能实现 |
+
+### 功能层组织 (借鉴 Skill 模式)
+
+```
+功能目录/
+├── SPEC.md              # 功能规范 (Agent 指令)
+├── REQUESTS.md          # 原始需求记录 (人类意图)
+├── *.py                 # 可执行代码 (主逻辑)
+├── scripts/             # 辅助脚本 (可选)
+├── templates/           # 模板文件 (可选)
+└── references/          # 参考文档 (可选)
+```
+
+**触发规则**：开发模式下，用户提出需求时 → 创建/更新 REQUESTS.md → 迭代 SPEC.md → 编写代码
 
 ### 约束关系
 
