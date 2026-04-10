@@ -22,11 +22,3 @@
 | `reconciler/` | ✅ 已迁移 | 执行精确 Diff-Patch，支持 dry-run 预览 |
 | `pod-provisioner/` | ✅ 已迁移 | 负责物理创建、环境注入、插件同步、Systemd 管理 |
 | `templates/` | ✅ 已迁移 | Jinja2 模板引擎（Systemd 服务模板、openclaw.json 模板） |
-
-## 五、 遗留文件清单 (已废弃)
-| 文件 | 归属模块层 |
-|---|---|
-| `bin/clawctl` | pod-provisioner |
-| `bin/claw-apply` | reconciler |
-| `bin/claw-repair` | pod-provisioner |
-| `bin/claw-rm` | pod-provisioner |

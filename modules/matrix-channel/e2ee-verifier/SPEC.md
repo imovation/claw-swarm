@@ -18,5 +18,5 @@
 - 严禁不同 Pod 共享加密状态目录。
 
 ## 四、 当前实现
-- **文件**：`bin/claw-matrix-verify`（Bash 脚本）。
-- **排错 Skill**：遇到复杂的 E2EE 问题时，加载 `matrix-openclaw-troubleshooter` 技能。
+- **文件**：`modules/matrix-channel/e2ee-verifier/`（Python 模块）
+- **排错 Skill**：遇到复杂的 E2EE 问题时，加载 `matrix-openclaw-troubleshooter` 技能

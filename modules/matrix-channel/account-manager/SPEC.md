@@ -17,5 +17,5 @@
 通过 `accounts:` 字段可为单个 Pod 配置多个 Matrix 账号，并通过 `defaultAccount` 指定默认账号。
 
 ## 五、 当前实现
-- **文件**：`bin/claw-matrix-add`（Bash 脚本）。
-- **调用时机**：由 `claw-apply` 在每次调和时自动触发。
+- **文件**：`modules/matrix-channel/account-manager/`（Python 模块）。
+- **调用时机**：由 `claw apply` 在每次调和时自动触发。

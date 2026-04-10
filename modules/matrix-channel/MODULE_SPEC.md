@@ -24,12 +24,3 @@
 | `account-manager/` | ✅ 已完成 | 账号凭证写入与多账号管理 (SecretRef 支持) |
 | `e2ee-verifier/` | ✅ 已完成 | E2EE 加密状态验证与 bootstrap |
 | `device-manager/` | ✅ 已完成 | 设备清理与配对管理 |
-
-## 五、 遗留文件清单 (已废弃)
-| 文件 | 归属模块层 |
-|---|---|
-| `lib/matrix_utils.sh` | account-manager |
-| `bin/claw-matrix-add` | account-manager |
-| `bin/claw-matrix-verify` | e2ee-verifier |
-| `bin/claw-matrix-devices` | device-manager |
-| `bin/claw-matrix-pairing` | device-manager |

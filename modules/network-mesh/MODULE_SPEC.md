@@ -23,8 +23,3 @@ global:
 |---|---|---|
 | `proxy-injector/` | ✅ 已完成 | 代理配置解析与幂等注入 (纯 Python) |
 | `port-manager/` | ✅ 已完成 | 端口声明与变更管理 (冲突检测 + swarm.yaml 同步) |
-
-## 五、 遗留文件清单 (已废弃)
-| 文件 | 归属模块层 |
-|---|---|
-| `bin/claw-port` | port-manager |

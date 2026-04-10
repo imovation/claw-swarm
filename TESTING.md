@@ -9,9 +9,9 @@
 2. 安装了所有依赖（包括 OpenClaw 和 Node.js）
 3. 有权限运行 systemd 用户服务
 
-## 测试 1: 基础声明式调和 (claw-apply)
+## 测试 1: 基础声明式调和 (claw apply)
 
-此测试验证 `claw-apply` 能否读取 `swarm.yaml` 并使实际状态匹配期望状态。
+此测试验证 `claw apply` 能否读取 `swarm.yaml` 并使实际状态匹配期望状态。
 
 ### 步骤:
 
@@ -20,9 +20,9 @@
    cat swarm.yaml
    ```
 
-2. 运行 claw-apply:
+2. 运行 claw apply:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
 
 3. 验证输出显示:
@@ -35,9 +35,9 @@
    systemctl --user list-units "openclaw-gateway*" --state=active
    ```
 
-## 测试 2: 声明式端口修改 (claw-port + claw-apply)
+## 测试 2: 声明式端口修改 (claw port + claw apply)
 
-此测试验证端口修改可以通过声明方式（编辑swarm.yaml）或命令方式（claw-port）进行，并且两种方式能保持同步。
+此测试验证端口修改可以通过声明方式（编辑swarm.yaml）或命令方式（claw port）进行，并且两种方式能保持同步。
 
 ### 方法A: 声明方式（推荐）
 
@@ -51,9 +51,9 @@
        browser: dedicated
    ```
 
-2. 运行 claw-apply:
+2. 运行 claw apply:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
 
 3. 验证:
@@ -63,9 +63,9 @@
 
 ### 方法B: 命令方式（快捷方式）
 
-1. 使用 claw-port 将 shining Pod 端口改为 20000:
+1. 使用 claw port 将 shining Pod 端口改为 20000:
    ```bash
-   ./bin/claw-port shining 20000
+   claw port shining 20000
    ```
 
 2. 验证:
@@ -73,9 +73,9 @@
    - 检查 swarm.yaml 中 shining 的端口现在是 20000
    - 集群状态看板显示 shining 端口为 20000
 
-3. 运行 claw-apply 验证幂等性:
+3. 运行 claw apply 验证幂等性:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
    - 应该显示所有Pod已同步（因为状态已经匹配）
 
@@ -92,18 +92,16 @@
    ```
 
 2. 创建一个孤儿Pod（不在swarm.yaml中定义）:
-   ```bash
-   ./bin/clawctl test_orphan 21000 orphan_token dedicated
-   ```
+   使用 Pod 供应器直接创建（参考 pod-provisioner 模块）
 
 3. 验证Pod已创建:
    ```bash
    systemctl --user list-units "openclaw-gateway-test_orphan*" --state=active
    ```
 
-4. 运行 claw-apply:
+4. 运行 claw apply:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
 
 5. 验证:
@@ -121,9 +119,9 @@
 
 2. 确认 test_orphan Pod仍在运行（从上一步骤）
 
-3. 运行 claw-apply:
+3. 运行 claw apply:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
 
 4. 验证:
@@ -133,7 +131,7 @@
 
 ## 测试 4: 配置漂移检测与自动修复
 
-此测试验证当Pod配置发生漂移时，claw-apply能自动检测并修复。
+此测试验证当Pod配置发生漂移时，claw apply能自动检测并修复。
 
 ### 步骤:
 
@@ -142,9 +140,9 @@
    echo '{"test":"manual_change"}' > /home/imovation/.openclaw-aimee/openclaw.json
    ```
 
-2. 运行 claw-apply:
+2. 运行 claw apply:
    ```bash
-   ./bin/claw-apply
+   claw apply
    ```
 
 3. 验证:
@@ -161,9 +159,9 @@
 1. 测试不同别名指向相同Pod:
    ```bash
    # 这些命令应该都操作相同的Pod（main Pod）
-   ./bin/claw-port main 22000     # 使用 main
-   ./bin/claw-port default 22000  # 使用 default
-   ./bin/claw-port gateway 22000  # 使用 gateway
+   claw port main 22000     # 使用 main
+   claw port default 22000  # 使用 default
+   claw port gateway 22000  # 使用 gateway
    ```
 
 2. 验证:
@@ -171,7 +169,7 @@
    - swarm.yaml 中 main Pod 的端口应该是 22000
    - 集群状态看板显示 main 端口为 22000
 
-## 测试 6: 服务修复功能 (claw-repair)
+## 测试 6: 服务修复功能 (claw repair)
 
 此测试验证修复损坏的服务文件功能。
 
@@ -189,7 +187,7 @@
 
 3. 运行修复脚本:
    ```bash
-   ./bin/claw-repair aimee
+   claw repair aimee
    ```
 
 4. 验证:
@@ -203,10 +201,10 @@
 
 ### 步骤:
 
-1. 运行 claw-apply 两次连续:
+1. 运行 claw apply 两次连续:
    ```bash
-   ./bin/claw-apply
-   ./bin/claw-apply
+   claw apply
+   claw apply
    ```
 
 2. 验证:
@@ -215,15 +213,15 @@
 
 3. 测试端口修改的幂等性:
    ```bash
-   ./bin/claw-port shining 20000
-   ./bin/claw-port shining 20000  # 第二次应该报告端口已经是目标值
+   claw port shining 20000
+   claw port shining 20000  # 第二次应该报告端口已经是目标值
    ```
 
 ## 期望结果
 
 如果所有测试都成功通过，您将看到：
 
-1. **声明式工作流**: 通过编辑swarm.yaml和运行claw-apply来管理系统状态
+1. **声明式工作流**: 通过编辑swarm.yaml和运行claw apply来管理系统状态
 2. **一致性**: 实际状态总是匹配swarm.yaml中声明的期望状态
 3. **自动修复**: 配置漂移和损坏会被自动检测和修复
 4. **孤儿处理**: 根据策略自动处理未声明但存在的Pod

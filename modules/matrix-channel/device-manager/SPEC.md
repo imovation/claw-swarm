@@ -13,5 +13,5 @@
 | 批准配对 | `claw matrix pairing <PROFILE> approve <CODE>` | 审批指定配对码 |
 
 ## 三、 当前实现
-- **设备管理**：`bin/claw-matrix-devices`（Bash 脚本）。
-- **配对管理**：`bin/claw-matrix-pairing`（Bash 脚本）。
+- **设备管理**：`modules/matrix-channel/device-manager/`（Python 模块）
+- **配对管理**：`modules/matrix-channel/device-manager/`（Python 模块）
