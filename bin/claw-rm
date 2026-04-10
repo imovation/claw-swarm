@@ -1,6 +1,9 @@
 #!/bin/bash
 # bin/claw-rm — 删除 Pod（类 kubectl delete pod <name>）
 # 使用共享库解决 profile 别名不一致问题
+#
+# 📋 [待迁移 PENDING MIGRATION] 归属模块：
+#     modules/orchestration/pod-provisioner/
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

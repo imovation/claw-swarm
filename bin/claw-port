@@ -1,6 +1,8 @@
 #!/bin/bash
 # bin/claw-port — 变更 Pod 运行端口（声明式：同步修改 swarm.yaml + 服务文件）
-# 
+#
+# 📋 [待迁移 PENDING MIGRATION] 归属模块：
+#     modules/network-mesh/port-manager/
 # 注意：这是一个命令式快捷工具。如需持久化端口变更，请直接编辑 swarm.yaml
 # 后运行 claw-apply，那才是声明式的正确做法。本脚本会同步修改两处以保持一致。
 #

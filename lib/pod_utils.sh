@@ -2,6 +2,12 @@
 # lib/pod_utils.sh — 声明式开发模式：共享 Pod 解析函数库
 # 解决 Profile/DIR/SERVICE_NAME 在 5 个脚本中重复声明的 DRY 违规问题。
 #
+# ⚠️  [已迁移 MIGRATED] 本库的核心逻辑已重构至：
+#     modules/orchestration/config-parser/parser.py  → resolve_pod()
+#     modules/orchestration/pod-provisioner/provisioner.py → get_node_binary()、sync_plugins()
+#     本文件作为过渡兼容层保留，供 bin/clawctl、bin/claw-repair 等遗留 Bash 脚本调用。
+#     请勿在此处添加新逻辑，新功能请直接在 modules/ 对应层编写。
+#
 # 使用方法（在调用脚本顶部 source 本文件）:
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   source "$SCRIPT_DIR/../lib/pod_utils.sh"

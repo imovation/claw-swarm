@@ -2,6 +2,11 @@
 # lib/matrix_utils.sh — 共享 Matrix 工具函数库
 # 提供 Matrix 配置解析和验证的辅助函数
 #
+# ⚠️  [待迁移 PENDING MIGRATION] 本库的逻辑归属：
+#     modules/matrix-channel/account-manager/  → 配置读取与验证
+#     本文件作为过渡兼容层保留，供 bin/claw-matrix-* 等遗留 Bash 脚本调用。
+#     请勿在此处添加新逻辑，新功能请直接在 modules/ 对应层编写。
+#
 # 使用方法：
 #   source "$SCRIPT_DIR/../lib/matrix_utils.sh"
 #

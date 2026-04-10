@@ -9,15 +9,24 @@
 3. **环境注入**：必须在 Systemd Unit 中强制注入 `OPENCLAW_STATE_DIR`, `OPENCLAW_CONFIG_PATH` 和 `TMPDIR`。
 4. **命名约定**：系统服务必须以 `openclaw-gateway-<name>.service` 命名，并部署在 `~/.config/systemd/user/` 下。
 
-## 三、 当前可用 CLI 命令清单 (遗留)
-*注：目前逻辑仍由 Bash 和 Python 脚本混合实现，未来将统一重构入本模块。*
+## 三、 CLI 入口与路由
+通过统一入口 `bin/claw` 路由至本模块：
+- `claw apply` — 调和集群状态 (核心入口，解析 yaml 并同步至 Systemd)
+- `claw status` — 查看集群看板
+- `claw tui <NAME>` — 进入实例 TUI (自动注入对应实例的环境变量)
 
-- **集群配置调和**：`./bin/claw-apply` (核心入口，解析 yaml 并同步至 Systemd)
-- **状态监控**：`./bin/claw-status`
-- **交互式调试**：`./bin/claw-tui <NAME>` (自动注入对应实例的环境变量)
-- **底层供应 (被 apply 调用)**：`./bin/clawctl <NAME> <PORT> <TOKEN>`
-- **修复与销毁**：`./bin/claw-repair <NAME>`, `./bin/claw-rm <NAME>`
+## 四、 下属功能树 (Features)
+| 功能目录 | 状态 | 说明 |
+|---|---|---|
+| `config-parser/` | ✅ 已迁移 | 负责读取并校验 swarm.yaml，使用 Pydantic 风格校验 |
+| `reconciler/` | ✅ 已迁移 | 执行精确 Diff-Patch，支持 dry-run 预览 |
+| `pod-provisioner/` | ✅ 已迁移 | 负责物理创建、环境注入、插件同步、Systemd 管理 |
+| `templates/` | ✅ 已迁移 | Jinja2 模板引擎（Systemd 服务模板、openclaw.json 模板） |
 
-## 四、 下属功能树 (待重构迁移)
-- `config-parser/`：计划用于解析 `swarm.yaml`。
-- `reconciler/`：计划用于执行 Diff-Patch 和 Systemd 重启。
+## 五、 遗留脚本清单
+| 文件 | 状态 |
+|---|---|
+| `bin/clawctl` | ⚠️ 已废弃，推荐使用 `modules/orchestration/pod-provisioner/provisioner.py` |
+| `bin/claw-apply` | ⚠️ 已废弃，推荐使用 `modules/orchestration/reconciler/reconciler.py` |
+| `bin/claw-repair` | 待迁移 |
+| `bin/claw-rm` | 待迁移 |

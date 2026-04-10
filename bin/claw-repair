@@ -3,6 +3,8 @@
 # 适用场景：Pod 已存在但服务文件损坏、路径过时、环境变量缺失时的修复。
 # 正常流程请使用 claw-apply（全量调谐）。
 #
+# 📋 [待迁移 PENDING MIGRATION] 归属模块：
+#     modules/orchestration/pod-provisioner/
 # 用法:  ./claw-repair <PROFILE_NAME>
 # 示例:  ./claw-repair aimee
 #         ./claw-repair default     ← 主 Pod (等同于 main / gateway)

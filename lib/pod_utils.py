@@ -2,6 +2,13 @@
 lib/pod_utils.py — 声明式开发模式：共享 Pod 解析函数库 (Python 侧)
 解决 CONFIG_FILE、get_pod_dir() 等逻辑在多个 Python 脚本中重复声明的 DRY 违规问题。
 
+⚠️  [已迁移 MIGRATED] 本库的核心逻辑已重构至：
+    modules/orchestration/config-parser/parser.py  → 配置解析、resolve_pod、SecretRef
+    modules/orchestration/pod-provisioner/provisioner.py → 路径解析、健康检查
+    modules/network-mesh/proxy-injector/injector.py → 代理注入
+    本文件作为过渡兼容层保留，供 bin/claw-apply、bin/claw-status 等遗留脚本调用。
+    请勿在此处添加新逻辑，新功能请直接在 modules/ 对应层编写。
+
 使用方法:
     import sys, os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))

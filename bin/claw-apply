@@ -3,6 +3,11 @@
 bin/claw-apply — 声明式控制器（类 kubectl apply）
 读取 swarm.yaml 的期望状态，并通过 clawctl 调和每个 Pod。
 增强功能：自动注入全局代理、合并插件清单、处理孤儿 Pod。
+
+⚠️  [已迁移 MIGRATED] 本脚本的核心逻辑已重构至：
+    modules/orchestration/reconciler/reconciler.py
+    modules/orchestration/config-parser/parser.py
+    本文件在控制面切换完成前作为过渡兼容层保留，请勿在此处添加新逻辑。
 """
 import os
 import yaml

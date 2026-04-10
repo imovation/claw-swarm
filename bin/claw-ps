@@ -1,5 +1,8 @@
 #!/bin/bash
 # claw-swarm: Precise Process Status Monitor
+#
+# 📋 [待迁移 PENDING MIGRATION] 归属模块：
+#     modules/orchestration/
 set -e
 
 # 表格头
