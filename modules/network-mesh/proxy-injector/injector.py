@@ -2,10 +2,13 @@
 modules/network-mesh/proxy-injector/injector.py
 代理注入器 — 解析 swarm.yaml 的 global.proxy 配置，写入 Pod 的 runtime/env 文件。
 """
-import os
-import re
+import sys
 from pathlib import Path
 from dataclasses import dataclass
+
+MODULE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(MODULE_DIR / "modules" / "orchestration" / "config-parser"))
+from utils import resolve_secret_ref
 
 
 @dataclass
@@ -14,19 +17,6 @@ class ProxyConfig:
     https: str = ""
     socks: str = ""
     no_proxy: str = ""
-
-
-def resolve_secret_ref(value: str) -> str:
-    """解析 ${VAR_NAME} 或 env:VAR_NAME 格式的 SecretRef。"""
-    if not isinstance(value, str):
-        return value
-    match = re.fullmatch(r'\$\{(\w+)\}', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    match = re.fullmatch(r'env:(\w+)', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    return value
 
 
 def inject(env_file: Path, proxy: ProxyConfig):

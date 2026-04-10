@@ -73,8 +73,8 @@ def ps():
                         if isinstance(cfg, dict) and cfg.get("enabled"):
                             pls.append(pl.replace("openclaw-", ""))
                     plugins = ",".join(pls) if pls else "none"
-                except:
-                    pass
+                except (json.JSONDecodeError, OSError) as e:
+                    pass  # 忽略读取错误，使用默认值
 
         print("%-12s %-8s %-8s %-25s %-12s %-20s" % (
             name, status, port, model[:24], channels[:11], plugins[:19]

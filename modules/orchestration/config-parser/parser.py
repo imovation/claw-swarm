@@ -7,16 +7,12 @@ modules/orchestration/config-parser/parser.py
 - 友好的错误信息（含字段路径提示）
 - SecretRef 解析（${VAR} 和 env:VAR 两种格式）
 """
-import os
-import re
 import yaml
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
 
-# ── 常量 ──────────────────────────────────────────────────────────────────────
-CLAW_USER_HOME = Path(os.environ.get("HOME", "/home/imovation"))
-MAIN_POD_ALIASES = {"default", "main", "gateway"}
+from utils import resolve_secret_ref, resolve_pod, run_systemctl
 
 
 # ── 数据结构 ──────────────────────────────────────────────────────────────────
@@ -34,7 +30,7 @@ class PodConfig:
     profile: str
     port: int
     token: str
-    browser: str = "dedicated"       # shared | dedicated
+    browser: str = "dedicated"
     plugins: list = field(default_factory=list)
     matrix: dict = field(default_factory=dict)
 
@@ -42,51 +38,10 @@ class PodConfig:
 @dataclass
 class SwarmConfig:
     proxy: ProxyConfig
-    orphan_policy: str               # warn | delete
-    plugins: list                    # 全局插件列表
-    matrix: dict                     # 全局 Matrix 配置
+    orphan_policy: str
+    plugins: list
+    matrix: dict
     pods: list[PodConfig]
-
-
-# ── SecretRef 解析 ─────────────────────────────────────────────────────────────
-def resolve_secret_ref(value: str) -> str:
-    """解析 ${VAR_NAME} 或 env:VAR_NAME 格式的环境变量引用。"""
-    if not isinstance(value, str):
-        return value
-    # 格式 1: ${VAR_NAME}
-    match = re.fullmatch(r'\$\{(\w+)\}', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    # 格式 2: env:VAR_NAME
-    match = re.fullmatch(r'env:(\w+)', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    return value
-
-
-# ── Pod 路径解析 ──────────────────────────────────────────────────────────────
-def resolve_pod(profile: str) -> dict:
-    """
-    根据 profile 名称解析所有路径相关信息。
-    统一处理 default / main / gateway 三个历史别名。
-    """
-    if profile in MAIN_POD_ALIASES:
-        profile_arg = "default"
-        pod_dir = CLAW_USER_HOME / ".openclaw"
-        service_name = "openclaw-gateway"
-    else:
-        profile_arg = profile
-        pod_dir = CLAW_USER_HOME / f".openclaw-{profile}"
-        service_name = f"openclaw-gateway-{profile}"
-
-    systemd_dir = CLAW_USER_HOME / ".config" / "systemd" / "user"
-    return {
-        "profile_arg": profile_arg,
-        "dir": pod_dir,
-        "service_name": service_name,
-        "service": systemd_dir / f"{service_name}.service",
-        "config": pod_dir / "openclaw.json",
-    }
 
 
 # ── 主解析器 ──────────────────────────────────────────────────────────────────
@@ -157,3 +112,8 @@ def get_swarm_config(config_path: Optional[Path] = None) -> dict:
         raise FileNotFoundError(f"找不到配置文件: {path}")
     with open(path, "r") as f:
         return yaml.safe_load(f)
+
+
+# 向后兼容：允许 from parser import resolve_pod
+__all__ = ["parse", "SwarmConfig", "PodConfig", "ProxyConfig", "get_swarm_config",
+           "resolve_secret_ref", "resolve_pod"]

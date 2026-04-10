@@ -10,7 +10,7 @@ from pathlib import Path
 
 MODULE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(MODULE_DIR / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod, get_node_binary, get_openclaw_binary
+from utils import resolve_pod, get_node_binary, get_openclaw_binary, run_systemctl
 
 
 def repair(profile: str):
@@ -69,8 +69,10 @@ def repair(profile: str):
 
     # 5. 重载 Systemd 并重启
     print("♻️  [2/3] 正在重载 Systemd 并重启实例...")
-    subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-    subprocess.run(["systemctl", "--user", "restart", f"{svc_name}.service"], check=False)
+    if not run_systemctl("daemon-reload"):
+        print("   ⚠️  daemon-reload 失败")
+    if not run_systemctl(f"restart {svc_name}.service"):
+        print("   ⚠️  restart 失败")
 
     # 6. 健康检查
     print("🩺 [3/3] 正在执行健康检查...")

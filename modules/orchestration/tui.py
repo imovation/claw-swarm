@@ -54,7 +54,7 @@ def tui(profile: str):
         subprocess.run(cmd, env=env)
     except KeyboardInterrupt:
         print("\n👋 已退出终端界面。")
-    except Exception as e:
+    except OSError as e:
         print(f"❌ 启动 TUI 失败: {e}")
 
 

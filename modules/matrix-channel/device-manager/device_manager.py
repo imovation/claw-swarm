@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod
+from utils import resolve_pod
 
 
 def run_openclaw(args: list, profile: str):
@@ -54,7 +54,7 @@ def list_devices(profile: str):
                 print(f"📱 设备列表 (本地):")
                 for dev in data.get("devices", []):
                     print(f"   - {dev.get('device_id', 'N/A')}: {dev.get('display_name', '未命名')}")
-            except Exception as e:
+            except (json.JSONDecodeError, OSError) as e:
                 print(f"⚠️  无法读取设备列表: {e}")
         else:
             print(f"⚠️  设备列表文件不存在，请先运行一次 OpenClaw 实例")

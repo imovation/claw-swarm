@@ -9,7 +9,7 @@ from pathlib import Path
 
 MODULE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(MODULE_DIR / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod
+from utils import resolve_pod, run_systemctl
 
 
 def remove(profile: str):
@@ -23,13 +23,13 @@ def remove(profile: str):
     result = subprocess.run(["systemctl", "--user", "list-units", "--all"], 
                           capture_output=True, text=True)
     if svc_name + ".service" in result.stdout:
-        subprocess.run(["systemctl", "--user", "stop", f"{svc_name}.service"], check=False)
-        subprocess.run(["systemctl", "--user", "disable", f"{svc_name}.service"], check=False)
+        run_systemctl(f"stop {svc_name}.service")
+        run_systemctl(f"disable {svc_name}.service")
 
     print("🧹 [2/3] 正在移除 Systemd 服务文件...")
     if service_file.exists():
         service_file.unlink()
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        run_systemctl("daemon-reload")
 
     print("📂 [3/3] 正在删除配置目录...")
     if dir_path.exists():

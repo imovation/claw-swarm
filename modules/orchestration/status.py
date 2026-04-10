@@ -63,15 +63,16 @@ def get_service_metrics(service_name):
                 k, v = line.split("=", 1)
                 metrics[k] = v
 
+        MEMORY_UNAVAILABLE = 18446744073709551615  # uint64 max when unavailable
         mem_bytes = int(metrics.get("MemoryCurrent", "0"))
-        mem_mb = 0.0 if mem_bytes == 18446744073709551615 else mem_bytes / (1024 * 1024)
+        mem_mb = 0.0 if mem_bytes == MEMORY_UNAVAILABLE else mem_bytes / (1024 * 1024)
 
         return {
             "state": metrics.get("ActiveState", "unknown"),
             "mem_mb": mem_mb,
             "uptime": metrics.get("ActiveEnterTimestamp", "N/A"),
         }
-    except Exception:
+    except (ValueError, FileNotFoundError) as e:
         return {"state": "error", "mem_mb": 0.0, "uptime": "N/A"}
 
 
@@ -92,7 +93,7 @@ def parse_pod_config(profile):
                 channels.append(ch)
         
         return model, ",".join(channels) if channels else "none"
-    except Exception:
+    except (json.JSONDecodeError, OSError) as e:
         return "error", "error"
 
 
@@ -120,7 +121,7 @@ def get_matrix_status(profile):
         enc_str = f"{GREEN}E2EE{NC}" if encryption else f"{YELLOW}明文{NC}"
         
         return {'homeserver': short_hs, 'encryption': enc_str}
-    except Exception:
+    except (json.JSONDecodeError, OSError) as e:
         return None
 
 
@@ -131,7 +132,8 @@ def main():
             config = parse_swarm(CONFIG_FILE)
             for pod in config.pods:
                 desired_pods[pod.name] = pod
-        except: pass
+        except (ValueError, FileNotFoundError, OSError):
+            pass
 
     actual_services = get_actual_services()
 

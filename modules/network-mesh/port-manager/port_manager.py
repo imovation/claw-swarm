@@ -15,7 +15,7 @@ SWARM_YAML = PROJECT_ROOT / "swarm.yaml"
 SYSTEMD_DIR = Path(os.environ.get("HOME", "/home/imovation")) / ".config" / "systemd" / "user"
 
 sys.path.insert(0, str(PROJECT_ROOT / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod
+from utils import resolve_pod, run_systemctl
 
 
 def check_port_available(port: int, exclude_profile: Optional[str] = None) -> bool:
@@ -110,8 +110,10 @@ def change_port(profile: str, new_port: int, skip_yaml_update: bool = False):
     # 5. 重载 Systemd
     svc_name = pod_info = resolve_pod(profile)["service_name"]
     print(f"♻️  正在重载 Systemd 并重启实例...")
-    subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-    subprocess.run(["systemctl", "--user", "restart", f"{svc_name}.service"], check=False)
+    if not run_systemctl("daemon-reload"):
+        print(f"   ⚠️  daemon-reload 失败")
+    if not run_systemctl(f"restart {svc_name}.service"):
+        print(f"   ⚠️  restart 失败")
     
     print(f"\n✅ Pod '{profile}' 端口已成功变更为 {new_port}")
     print(f"   查看日志: journalctl --user -fu {svc_name}.service")

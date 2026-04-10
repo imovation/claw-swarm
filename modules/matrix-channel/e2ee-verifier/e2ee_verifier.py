@@ -8,7 +8,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod
+from utils import resolve_pod
 
 
 def get_matrix_dir(profile: str) -> Path:
@@ -60,7 +60,7 @@ def status(profile: str, verbose: bool = False):
                     print(f"   密钥备份: 已创建")
                 else:
                     print(f"   密钥备份: 未创建")
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
     else:
         print(f"⚠️  Pod '{profile}' 尚未初始化 E2EE 加密")

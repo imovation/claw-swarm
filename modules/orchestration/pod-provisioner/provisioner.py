@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import time
 import http.client
+import json
 from pathlib import Path
 
 # ── 路径初始化 ─────────────────────────────────────────────────────────────────
@@ -21,39 +22,20 @@ PROJECT_ROOT = MODULE_DIR.parent.parent.parent.parent
 TEMPLATE_DIR = MODULE_DIR.parent / "templates"
 sys.path.insert(0, str(PROJECT_ROOT / "modules" / "orchestration" / "config-parser"))
 
-from parser import resolve_pod
+from utils import resolve_pod, get_node_binary, get_openclaw_binary
 
 CLAW_USER_HOME = Path(os.environ.get("HOME", "/home/imovation"))
 SYSTEMD_DIR    = CLAW_USER_HOME / ".config" / "systemd" / "user"
 
 
-# ── Node.js 路径解析 ───────────────────────────────────────────────────────────
-def get_node_binary() -> Path:
-    """动态解析 nvm 当前激活的 node 可执行文件路径。"""
-    nvm_dir = CLAW_USER_HOME / ".nvm" / "versions" / "node"
-    if nvm_dir.exists():
-        versions = sorted(nvm_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
-        for v in versions:
-            candidate = v / "bin" / "node"
-            if candidate.exists():
-                return candidate
-    # 降级：从 PATH 查找
-    node = shutil.which("node")
-    if node:
-        return Path(node)
-    raise RuntimeError("找不到 node 可执行文件，请确认 nvm 或 node 已正确安装")
-
-
-def get_openclaw_binary() -> Path:
-    """动态解析 openclaw dist/index.js 路径。"""
-    nvm_dir = CLAW_USER_HOME / ".nvm" / "versions" / "node"
-    if nvm_dir.exists():
-        versions = sorted(nvm_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
-        for v in versions:
-            candidate = v / "lib" / "node_modules" / "openclaw" / "dist" / "index.js"
-            if candidate.exists():
-                return candidate
-    raise RuntimeError("找不到 openclaw dist/index.js，请确认 openclaw 已全局安装")
+def _run_systemctl(args: str) -> bool:
+    """运行 systemctl 命令，返回是否成功。"""
+    cmd = ["systemctl", "--user"] + args.split()
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"   ⚠️  systemctl {' '.join(args)} 失败: {result.stderr}")
+        return False
+    return True
 
 
 # ── 模板渲染 ───────────────────────────────────────────────────────────────────
@@ -84,7 +66,15 @@ def sync_plugins(pod_dir: Path, plugins: list, node_bin: Path):
             continue
         print(f"   📦 正在同步插件: {plugin}...")
         if shutil.which("rsync"):
-            subprocess.run(["rsync", "-rt", "--delete", f"{src}/", f"{dst}/"], check=False)
+            result = subprocess.run(
+                ["rsync", "-rt", "--delete", f"{src}/", f"{dst}/"], 
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                print(f"   ⚠️  rsync 失败，回退到 shutil.copytree")
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(src, dst)
         else:
             if dst.exists():
                 shutil.rmtree(dst)
@@ -163,7 +153,7 @@ def provision(profile: str, port: int, token: str,
             existing = json.loads(config_file.read_text())
             if "gateway" in existing:
                 needs_init = False
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             pass
     if needs_init:
         rendered = _render("openclaw.json.j2", token=token, port=port)
@@ -175,9 +165,9 @@ def provision(profile: str, port: int, token: str,
 
     # 7. 启动 Systemd 实例
     instance_svc = f"openclaw-gateway@{profile_arg}"
-    subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-    subprocess.run(["systemctl", "--user", "enable", "--now", instance_svc], check=False)
-    subprocess.run(["systemctl", "--user", "restart", instance_svc], check=False)
+    _run_systemctl("daemon-reload")
+    _run_systemctl(f"enable --now {instance_svc}")
+    _run_systemctl(f"restart {instance_svc}")
 
     # 8. 健康检查
     _health_check(instance_svc, profile, port)
@@ -223,6 +213,6 @@ def _health_check(svc_name: str, display: str, port: int, timeout: int = 10):
             print(f"✅ Pod '{display}' 运行正常 (HTTP {res.status})。")
             return True
         print(f"⚠️  Pod '{display}' API 响应异常: {res.status}")
-    except Exception as e:
+    except (ConnectionRefusedError, ConnectionResetError, OSError, http.client.HTTPException) as e:
         print(f"⚠️  Pod '{display}' HTTP 探活失败: {e}")
     return False

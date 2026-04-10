@@ -3,29 +3,13 @@ modules/matrix-channel/account-manager/account_manager.py
 Matrix 账号管理器 — 负责将 Matrix 配置写入 Pod 的 openclaw.json。
 """
 import json
-import os
 import sys
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Optional
-import re
 
 MODULE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(MODULE_DIR / "modules" / "orchestration" / "config-parser"))
-from parser import resolve_pod
-
-
-def resolve_secret_ref(value: str) -> str:
-    """解析 ${VAR_NAME} 或 env:VAR_NAME 格式的 SecretRef。"""
-    if not isinstance(value, str):
-        return value
-    match = re.fullmatch(r'\$\{(\w+)\}', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    match = re.fullmatch(r'env:(\w+)', value.strip())
-    if match:
-        return os.environ.get(match.group(1), value)
-    return value
+from utils import resolve_pod, resolve_secret_ref
 
 
 def load_config(pod_info: dict) -> dict:
@@ -35,7 +19,7 @@ def load_config(pod_info: dict) -> dict:
         return {}
     try:
         return json.loads(config_path.read_text())
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return {}
 
 

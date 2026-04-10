@@ -16,7 +16,8 @@ from pathlib import Path
 # 将 config-parser 加入路径
 MODULE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MODULE_DIR / "config-parser"))
-from parser import parse, resolve_pod, SwarmConfig, PodConfig
+from parser import parse, SwarmConfig, PodConfig
+from utils import resolve_pod, run_systemctl
 
 
 # ── 实际状态感知 (本地实现) ─────────────────────────────────────────────────────
@@ -95,10 +96,10 @@ def handle_orphans(orphans: list, actual: dict, policy: str):
         print("🗑️  根据 orphan_policy: delete，正在清理...")
         for name in orphans:
             svc = actual[name]["service"]
-            subprocess.run(["systemctl", "--user", "stop",    f"{svc}.service"], check=False)
-            subprocess.run(["systemctl", "--user", "disable", f"{svc}.service"], check=False)
+            run_systemctl(f"stop {svc}.service")
+            run_systemctl(f"disable {svc}.service")
             print(f"   ✅ 孤儿 Pod '{name}' 已清理。")
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        run_systemctl("daemon-reload")
     else:
         print("⚠️  根据 orphan_policy: warn，仅提醒，未采取行动。")
 
