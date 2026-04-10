@@ -19,9 +19,7 @@ from pathlib import Path
 MODULE_DIR   = Path(__file__).resolve().parent
 PROJECT_ROOT = MODULE_DIR.parent.parent.parent.parent
 TEMPLATE_DIR = MODULE_DIR.parent / "templates"
-LIB_DIR      = PROJECT_ROOT / "lib"
 sys.path.insert(0, str(PROJECT_ROOT / "modules" / "orchestration" / "config-parser"))
-sys.path.insert(0, str(LIB_DIR))
 
 from parser import resolve_pod
 

@@ -10,6 +10,7 @@ modules/orchestration/reconciler/reconciler.py
 import sys
 import json
 import subprocess
+import re
 from pathlib import Path
 
 # 将 config-parser 加入路径
@@ -17,16 +18,31 @@ MODULE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MODULE_DIR / "config-parser"))
 from parser import parse, resolve_pod, SwarmConfig, PodConfig
 
-# 将 lib 加入路径（过渡期兼容）
-LIB_DIR = Path(__file__).resolve().parent.parent.parent.parent / "lib"
-sys.path.insert(0, str(LIB_DIR))
-from pod_utils import get_actual_services, get_service_metrics
 
-
-# ── 实际状态感知 ──────────────────────────────────────────────────────────────
+# ── 实际状态感知 (本地实现) ─────────────────────────────────────────────────────
 def get_actual_state() -> dict:
     """通过 Systemd 感知当前实际运行的 Pod 状态。"""
-    return get_actual_services()
+    out = subprocess.run(
+        ["systemctl", "--user", "list-units", "openclaw-gateway*", "--all", "--no-legend"],
+        capture_output=True, text=True,
+    ).stdout
+
+    services = {}
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        full_svc = line.split()[0].removesuffix(".service")
+        
+        if "@" in full_svc:
+            profile = full_svc.split("@", 1)[1]
+            name = "main" if profile == "default" else profile
+        else:
+            profile = "default" if full_svc == "openclaw-gateway" else full_svc.replace("openclaw-gateway-", "")
+            name = "main" if profile == "default" else profile
+            
+        services[name] = {"service": full_svc, "profile": profile}
+
+    return services
 
 
 # ── Diff 计算 ─────────────────────────────────────────────────────────────────
@@ -55,7 +71,6 @@ def compute_diff(desired: SwarmConfig, actual: dict) -> dict:
                 ["systemctl", "--user", "show", "-p", "Environment", svc_name],
                 capture_output=True, text=True
             ).stdout
-            import re
             m = re.search(r'OPENCLAW_PORT=(\d+)', port_out)
             actual_port = int(m.group(1)) if m else None
             if actual_port and actual_port != pod.port:
@@ -141,3 +156,20 @@ def reconcile(config_path: Path, dry_run: bool = False,
         sys.stdout.flush()
 
     handle_orphans(diff["orphans"], actual, config.orphan_policy)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description='Claw-Swarm 调和控制器')
+    parser.add_argument('--dry-run', action='store_true', help='仅预览变更')
+    parser.add_argument('--skip-update', action='store_true', help='跳过版本检查')
+    parser.add_argument('--yes', '-y', action='store_true', help='自动确认')
+    args = parser.parse_args()
+
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+    CONFIG_FILE = PROJECT_ROOT / "swarm.yaml"
+    reconcile(CONFIG_FILE, dry_run=args.dry_run, skip_update=args.skip_update, auto_yes=args.yes)
+
+
+if __name__ == "__main__":
+    main()
