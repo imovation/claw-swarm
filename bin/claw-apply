@@ -1,160 +1,27 @@
 #!/usr/bin/env python3
 """
 bin/claw-apply — 声明式控制器（类 kubectl apply）
-读取 swarm.yaml 的期望状态，并通过 clawctl 调和每个 Pod。
-增强功能：自动注入全局代理、合并插件清单、处理孤儿 Pod。
+读取 swarm.yaml 的期望状态，调用新模块层代码调和每个 Pod。
 
-⚠️  [已迁移 MIGRATED] 本脚本的核心逻辑已重构至：
+⚠️  [已迁移 MIGRATED] 本脚本已重构为调用新模块层代码：
     modules/orchestration/reconciler/reconciler.py
+    modules/orchestration/pod-provisioner/provisioner.py
     modules/orchestration/config-parser/parser.py
-    本文件在控制面切换完成前作为过渡兼容层保留，请勿在此处添加新逻辑。
 """
 import os
-import yaml
-import subprocess
 import sys
-import json
+import subprocess
 from pathlib import Path
 
-# 将 lib 目录加入模块搜索路径
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-LIB_DIR = PROJECT_ROOT / "lib"
-
-sys.path.insert(0, str(LIB_DIR))
-from pod_utils import (
-    get_swarm_config,
-    get_actual_services,
-)
-
-CONFIG_FILE = PROJECT_ROOT / "swarm.yaml"
 BIN_DIR = PROJECT_ROOT / "bin"
+CONFIG_FILE = PROJECT_ROOT / "swarm.yaml"
 
-def run_command(cmd):
-    """运行命令并实时输出至终端。"""
-    try:
-        subprocess.run(cmd, check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
-
-def apply_pod(pod_config, global_config):
-    """使用 clawctl 调和单个 Pod。"""
-    name = pod_config['name']
-    profile = pod_config.get('profile', name)
-    port = pod_config['port']
-    token = pod_config['token']
-    browser_mode = pod_config.get('resources', {}).get('browser', 'dedicated')
-    
-    # 合并全局插件与 Pod 特定插件
-    global_plugins = global_config.get('plugins', [])
-    pod_plugins = pod_config.get('plugins', [])
-    all_plugins = list(set(global_plugins + pod_plugins))
-    plugins_str = ",".join(all_plugins)
-
-    # 获取代理配置
-    proxy_json = json.dumps(global_config.get('proxy', {}))
-
-    # 构造 clawctl 调用参数
-    cmd = [
-        str(BIN_DIR / "clawctl"),
-        profile,
-        str(port),
-        token,
-        browser_mode,
-        plugins_str,
-        proxy_json
-    ]
-    
-    print(f"▶️  正在同步实例: {name}...")
-    if run_command(cmd):
-        print(f"   ✅ {name} 同步成功。")
-    else:
-        print(f"   ❌ {name} 同步失败。")
-    sys.stdout.flush()
-    
-    # 处理 Matrix 配置（合并全局与 Pod 特定配置）
-    apply_matrix_config(pod_config, global_config, profile)
-
-
-def apply_matrix_config(pod_config, global_config, profile):
-    """应用 Matrix 配置到 Pod。"""
-    global_matrix = global_config.get('matrix', {})
-    pod_matrix = pod_config.get('matrix', {})
-    
-    if not global_matrix and not pod_matrix:
-        return
-    
-    matrix_conf = {**global_matrix, **pod_matrix}
-    
-    if not matrix_conf.get('enabled', False):
-        return
-    
-    name = pod_config['name']
-    print(f"   📱 正在配置 Matrix 渠道...")
-    
-    # 构建完整配置 JSON
-    matrix_json = json.dumps(matrix_conf)
-    
-    # 写入临时文件供 Python 处理
-    temp_config = Path(f"/tmp/matrix_config_{profile}_{os.getpid()}.json")
-    with open(temp_config, 'w') as f:
-        json.dump(matrix_conf, f)
-    
-    try:
-        # 调用增强版 claw-matrix-add
-        matrix_cmd = [
-            str(BIN_DIR / 'claw-matrix-add'),
-            profile,
-            '--config-file', str(temp_config)
-        ]
-        
-        result = subprocess.run(matrix_cmd, check=False, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            print(f"   ✅ Matrix 配置已应用。")
-        else:
-            print(f"   ⚠️  Matrix 配置失败: {result.stderr[:200] if result.stderr else result.stdout[:200]}")
-    finally:
-        if temp_config.exists():
-            temp_config.unlink()
-
-def handle_orphans(desired_pods, actual_services, orphan_policy):
-    """处理孤儿 Pod。"""
-    desired_names = set(desired_pods.keys())
-    # 兼容模板名和旧名
-    actual_names = set()
-    for name, info in actual_services.items():
-        actual_names.add(name)
-
-    orphans = actual_names - desired_names
-    if not orphans:
-        return
-
-    print(f"\n🔍 发现 {len(orphans)} 个孤儿 Pod: {', '.join(sorted(orphans))}")
-
-    if orphan_policy == "delete":
-        print("🗑️  根据 global.orphan_policy: delete，正在清理孤儿 Pod...")
-        for name in orphans:
-            info = actual_services[name]
-            service_name = info["service"]
-            print(f"   正在停止并移除孤儿 Pod: {name} ({service_name})...")
-            subprocess.run(["systemctl", "--user", "stop", f"{service_name}.service"], check=False)
-            subprocess.run(["systemctl", "--user", "disable", f"{service_name}.service"], check=False)
-            
-            # 移除服务文件（如果是旧的静态文件）
-            service_file = Path.home() / ".config" / "systemd" / "user" / f"{service_name}.service"
-            if service_file.exists() and "@" not in service_name:
-                service_file.unlink()
-
-            print(f"   ✅ 孤儿 Pod {name} 已清理。")
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-    elif orphan_policy == "warn":
-        print("⚠️  根据 global.orphan_policy: warn，仅提醒未采取行动。")
 
 def check_and_update_openclaw(skip_update=False, auto_yes=False, non_interactive=False):
     """检测版本并询问用户是否更新。"""
-    from pod_utils import get_openclaw_versions
+    from lib.pod_utils import get_openclaw_versions
     local_v, remote_v = get_openclaw_versions()
     
     if local_v == "error" or remote_v == "error":
@@ -193,6 +60,7 @@ def check_and_update_openclaw(skip_update=False, auto_yes=False, non_interactive
         print("✅ OpenClaw 已是最新版。")
     return False
 
+
 def main():
     import argparse
     
@@ -200,9 +68,9 @@ def main():
     parser.add_argument('--skip-update', action='store_true', help='跳过 OpenClaw 版本检测')
     parser.add_argument('--yes', '-y', action='store_true', help='自动确认版本更新')
     parser.add_argument('--dry-run', action='store_true', help='仅预览变更，不实际执行')
+    parser.add_argument('--skip-matrix', action='store_true', help='跳过 Matrix 配置')
     args = parser.parse_args()
 
-    # 检测是否非交互模式
     non_interactive = not sys.stdin.isatty()
 
     if not CONFIG_FILE.exists():
@@ -213,52 +81,72 @@ def main():
     if not args.skip_update:
         check_and_update_openclaw(args.skip_update, args.yes, non_interactive)
 
+    # 调用新模块层代码
+    MODULE_DIR = PROJECT_ROOT / "modules" / "orchestration"
+    sys.path.insert(0, str(MODULE_DIR / "config-parser"))
+    sys.path.insert(0, str(MODULE_DIR / "reconciler"))
+    sys.path.insert(0, str(MODULE_DIR / "pod-provisioner"))
+
+    from parser import parse as parse_config
+    from reconciler import compute_diff, get_actual_state, handle_orphans
+    from provisioner import provision
+
     try:
-        config = get_swarm_config(CONFIG_FILE)
+        config = parse_config(CONFIG_FILE)
     except Exception as e:
-        print(f"❌ 读取 swarm.yaml 失败: {e}")
+        print(f"❌ 读取或解析 swarm.yaml 失败: {e}")
         sys.exit(1)
 
-    global_config = config.get('global', {})
-    pods = config.get('pods', [])
-    orphan_policy = global_config.get('orphan_policy', 'warn')
-    desired_pods = {pod['name']: pod for pod in pods}
-    actual_services = get_actual_services()
+    actual = get_actual_state()
+    diff = compute_diff(config, actual)
 
     if args.dry_run:
         print("\n🌀 === DRY RUN 模式 ===")
-        print(f"将创建/更新 {len(pods)} 个 Pod:")
-        for pod in pods:
-            name = pod['name']
-            profile = pod.get('profile', name)
-            port = pod['port']
-            print(f"   • {name} (profile: {profile}, port: {port})")
-        
-        # 检查孤儿
-        desired_names = set(desired_pods.keys())
-        actual_names = set(actual_services.keys())
-        orphans = actual_names - desired_names
-        if orphans:
-            print(f"\n发现 {len(orphans)} 个孤儿 Pod: {', '.join(sorted(orphans))}")
-            if orphan_policy == "delete":
-                print("   将执行删除 (orphan_policy: delete)")
-            else:
-                print("   仅警告 (orphan_policy: warn)")
-        
+        print(f"将新建 {len(diff['to_create'])} 个 Pod:")
+        for pod in diff["to_create"]:
+            print(f"   + {pod.name} (profile: {pod.profile}, port: {pod.port})")
+        print(f"将更新 {len(diff['to_update'])} 个 Pod:")
+        for pod in diff["to_update"]:
+            print(f"   ~ {pod.name} (profile: {pod.profile}, port: {pod.port})")
+        if diff["orphans"]:
+            print(f"\n发现 {len(diff['orphans'])} 个孤儿 Pod: {', '.join(diff['orphans'])}")
+            print(f"   策略: {config.orphan_policy}")
         print("\n✅ Dry run 完成，未执行实际变更。")
-        return
+        sys.exit(0)
 
-    # 1. 调和 Pod
-    for pod in pods:
-        apply_pod(pod, global_config)
+    # 1. 调和 Pod (使用新模块 provisioner)
+    all_pods = diff["to_create"] + diff["to_update"]
+    for pod in all_pods:
+        all_plugins = list(set(config.plugins + pod.plugins))
+        proxy_dict = {
+            "http": config.proxy.http,
+            "https": config.proxy.https,
+            "socks": config.proxy.socks,
+            "no_proxy": config.proxy.no_proxy,
+        }
+        print(f"▶️  正在同步实例: {pod.name}...")
+        try:
+            provision(
+                profile=pod.profile,
+                port=pod.port,
+                token=pod.token,
+                browser=pod.browser,
+                plugins=all_plugins,
+                proxy=proxy_dict,
+            )
+            print(f"   ✅ {pod.name} 同步成功。")
+        except Exception as e:
+            print(f"   ❌ {pod.name} 同步失败: {e}")
+        sys.stdout.flush()
 
     # 2. 处理孤儿
-    handle_orphans(desired_pods, actual_services, orphan_policy)
+    handle_orphans(diff["orphans"], actual, config.orphan_policy)
 
     # 3. 最终看板
     print("\n" + "=" * 30 + " 🐝 集群最终状态看板 " + "=" * 30)
     sys.stdout.flush()
     subprocess.run([str(BIN_DIR / "claw-status")])
+
 
 if __name__ == "__main__":
     main()
