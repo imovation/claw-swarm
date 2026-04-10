@@ -19,6 +19,11 @@
 ## 四、 SecretRef 支持
 代理配置值支持 `${ENV_VAR}` 格式的环境变量引用（SecretRef），解析时从宿主机环境读取实际值。
 
-## 五、 当前实现
-- **文件**：`bin/clawctl` 中的代理注入段（Bash + jq，待迁移）。
-- **依赖**：当前依赖 `jq` 命令解析 JSON，重构目标为纯 Python 实现。
+##五、 当前实现
+- **文件**：`modules/network-mesh/proxy-injector/injector.py` ✅
+- **技术方案**：纯 Python 实现，无额外依赖 (无 jq)
+
+## 六、 功能特性
+- ✅ 幂等注入：先清理旧代理配置，再写入新配置
+- ✅ 纯 Python 实现：无外部命令依赖
+- ✅ SecretRef 解析支持

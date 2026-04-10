@@ -24,10 +24,11 @@ for pod in diff.to_update:   provisioner.update(pod)
 for pod in diff.orphans:     handle_orphan(pod, policy)
 ```
 
-## 四、 当前实现
-- **文件**：`bin/claw-apply`（待迁移至本目录 `reconciler.py`）。
-- **已知问题**：目前无精确 Diff，每次 apply 都全量执行，效率低下。
+##四、 当前实现
+- **文件**：`modules/orchestration/reconciler/reconciler.py` ✅
 
-## 五、 重构目标
-- 实现精确 Diff：只有真正发生变更的 Pod 才触发重启。
-- 变更计划可视化：`claw apply --dry-run` 输出清晰的变更计划。
+## 五、 功能特性
+- ✅ 精确 Diff：只对真正发生变更的 Pod 触发重启
+- ✅ 变更计划可视化：`claw apply --dry-run` 输出清晰的变更计划
+- ✅ 孤儿 Pod 处理 (warn/delete 策略)
+- ✅ 版本检查与更新提示

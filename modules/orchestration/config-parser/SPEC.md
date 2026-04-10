@@ -15,9 +15,10 @@
   - `pods[]`：Pod 配置列表（name、profile、port、token、resources、plugins、matrix）。
 
 ## 四、 当前实现
-- **文件**：`lib/pod_utils.py` 中的 `get_swarm_config()` 函数（待迁移至本目录）。
-- **技术方案**：使用 Python `yaml.safe_load()` 解析，基础字段类型校验。
+- **文件**：`modules/orchestration/config-parser/parser.py` ✅
+- **技术方案**：使用 Python `yaml.safe_load()` 解析，SecretRef 解析，Pydantic 风格字段校验。
 
-## 五、 重构目标
-- 引入 Schema 校验（Pydantic 或 JSON Schema），实现字段级精确报错。
-- 错误信息友好化：提示具体行号和字段名（如："pods[0].port 必须为整数"）。
+## 五、 功能特性
+- ✅ SecretRef 支持 (`${VAR}` 和 `env:VAR` 格式)
+- ✅ 字段级精确报错 (如 "pods[0].port 必须为整数")
+- ✅ Profile 别名解析 (default/main/gateway)

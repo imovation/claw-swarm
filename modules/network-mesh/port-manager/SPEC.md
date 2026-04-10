@@ -18,5 +18,11 @@ claw port <NAME> <NEW_PORT>
   └─ 4. 重载并重启对应的 Systemd 服务
 ```
 
-## 四、 当前实现
-- **文件**：`bin/claw-port`（Bash 脚本，待迁移）。
+##四、 当前实现
+- **文件**：`modules/network-mesh/port-manager/port_manager.py` ✅
+
+## 五、 功能特性
+- ✅ 端口冲突检测
+- ✅ swarm.yaml 双向同步
+- ✅ Systemd 服务文件自动更新
+- ✅ 自动重载与重启
