@@ -6,13 +6,12 @@
 
 ### 第一阶：系统层 (System)
 **触发条件**：新会话初始化
-**加载内容**：仅加载 `agents/gatekeeper.md`（双轨模式拦截器，约 30 行）
+**加载内容**：守门人 (`agents/gatekeeper.md`) 和核心红线 (`agents/core-rules.md`) 由 opencode.json 自动注入，无需手动加载。
 
 ```bash
-# Agent 初始指令
-1. 显示守门人拦截器
-2. 要求用户选择工作模式
-3. 锁定会话模式
+# Agent 初始指令（自动完成）
+1. 守门人拦截 + 核心红线 — opencode.json instructions 自动注入
+2. 模式锁定 — 根据用户选择进入对应模式
 ```
 
 ### 第二阶：模块层 (Module)
