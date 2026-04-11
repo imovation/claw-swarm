@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""
+bin/clawctl — Pod 供应命令行包装器
+将调和器的指令转发给 pod-provisioner/provisioner.py
+"""
+import sys
+import json
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+MODULE_DIR = PROJECT_ROOT / "modules"
+sys.path.insert(0, str(MODULE_DIR / "orchestration" / "pod-provisioner"))
+sys.path.insert(0, str(MODULE_DIR / "orchestration" / "config-parser"))
+
+from provisioner import provision
+
+def main():
+    if len(sys.argv) < 7:
+        print(f"Usage: {sys.argv[0]} <profile> <port> <token> <browser> <plugins> <proxy_json>")
+        sys.exit(1)
+
+    profile = sys.argv[1]
+    port = int(sys.argv[2])
+    token = sys.argv[3]
+    browser = sys.argv[4] if sys.argv[4] else "dedicated"
+    plugins = [p for p in sys.argv[5].split(",") if p] if sys.argv[5] else []
+    proxy = json.loads(sys.argv[6]) if len(sys.argv) > 6 else {}
+
+    try:
+        provision(profile, port, token, browser=browser, plugins=plugins, proxy=proxy)
+        sys.exit(0)
+    except Exception as e:
+        print(f"❌ 供应失败: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

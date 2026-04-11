@@ -11,7 +11,7 @@
 
 **需求来源**：人类直接描述
 
-**需求**：claw-swarm 的定位是一个基于 opencode 的 agent。它支持开发和应用两种模式。两种模式的使用场景都是将 claw-swarm 项目目录作为 opencode 工作空间，在 opencode tui 中交互。
+**需求**：claw-swarm 的定位是一个基于 opencode 的 OpenClaw 实例编排 agent。它支持开发和应用两种模式。两种模式的使用场景都是将 claw-swarm 项目目录作为 opencode 工作空间，在 opencode tui 中交互。
 
 1. 应用模式不能迭代修改 claw-swarm 本身，只有开发模式才可以
 2. 开发模式开发完成某个功能后需要提交更新 github 仓库

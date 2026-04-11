@@ -62,28 +62,31 @@ def update_swarm_yaml(profile: str, new_port: int):
 
 
 def update_systemd_service(profile: str, new_port: int):
-    """更新 Systemd 服务文件中的端口参数。"""
+    """更新 Systemd 实例的环境变量文件中的端口参数。"""
     pod_info = resolve_pod(profile)
-    service_file = pod_info["service"]
+    profile_arg = pod_info["profile_arg"]
     
-    if not service_file.exists():
-        print(f"❌ 找不到服务文件: {service_file}")
+    # 环境变量文件路径: ~/.openclaw[-profile]/runtime/env
+    pod_dir = pod_info["dir"]
+    env_file = pod_dir / "runtime" / "env"
+    
+    if not env_file.exists():
+        print(f"❌ 找不到环境变量文件: {env_file}")
         print("   提示: 请先使用 claw apply 创建该 Pod。")
         sys.exit(1)
     
-    content = service_file.read_text()
+    content = env_file.read_text()
     
-    # 替换 ExecStart 中的 --port 参数
-    # 模式: gateway run --port <old_port>
-    pattern = r'(gateway\s+run\s+--port\s+)\d+'
-    replacement = r'\g<1>' + str(new_port)
-    new_content = re.sub(pattern, replacement, content)
+    # 替换 OPENCLAW_PORT 环境变量
+    pattern = r'^OPENCLAW_PORT=\d+'
+    replacement = f'OPENCLAW_PORT={new_port}'
+    new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
     
     if new_content == content:
-        print(f"⚠️  未能在服务文件中找到端口参数")
+        print(f"⚠️  未能在环境变量文件中找到端口参数")
     
-    service_file.write_text(new_content)
-    print(f"   已更新 Systemd 服务文件: {service_file}")
+    env_file.write_text(new_content)
+    print(f"   已更新环境变量文件: {env_file}")
 
 
 def change_port(profile: str, new_port: int, skip_yaml_update: bool = False):

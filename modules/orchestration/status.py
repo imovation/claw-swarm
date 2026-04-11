@@ -79,7 +79,7 @@ def get_service_metrics(service_name):
 def parse_pod_config(profile):
     """解析 Pod 的 openclaw.json，提取主用模型和生效渠道。"""
     pod_info = resolve_pod(profile)
-    config_path = pod_info["config"]
+    config_path = pod_info["dir"] / "openclaw.json"
     if not config_path.exists():
         return "N/A", "none"
     
@@ -101,7 +101,7 @@ def get_matrix_status(profile):
     """解析 Pod 的 Matrix 渠道状态。"""
     try:
         pod_info = resolve_pod(profile)
-        config_path = pod_info["config"]
+        config_path = pod_info["dir"] / "openclaw.json"
         if not config_path.exists():
             return None
         

@@ -72,26 +72,25 @@ def resolve_pod(profile: str) -> PodInfo:
         包含以下键的字典:
         - profile_arg: 实际的 profile 参数
         - dir: Pod 的工作目录
-        - service_name: Systemd 服务名
-        - service: Systemd 服务文件路径
+        - service_name: Systemd 服务前缀 (始终是 openclaw-gateway)
+        - service: Systemd 模板服务文件路径 (openclaw-gateway@.service)
         - config: openclaw.json 配置文件路径
     """
     if profile in MAIN_POD_ALIASES:
         profile_arg = "default"
         pod_dir = CLAW_USER_HOME / ".openclaw"
-        service_name = "openclaw-gateway"
     else:
         profile_arg = profile
         pod_dir = CLAW_USER_HOME / f".openclaw-{profile}"
-        service_name = f"openclaw-gateway-{profile}"
 
     systemd_dir = CLAW_USER_HOME / ".config" / "systemd" / "user"
+    # Systemd 实例化模板服务: openclaw-gateway@.service
+    # 具体实例通过 openclaw-gateway@{profile_arg}.service 访问
     return {
         "profile_arg": profile_arg,
         "dir": pod_dir,
-        "service_name": service_name,
-        "service": systemd_dir / f"{service_name}.service",
-        "config": pod_dir / "openclaw.json",
+        "service_name": "openclaw-gateway",  # 始终是 openclaw-gateway
+        "service": systemd_dir / "openclaw-gateway@.service",  # 模板文件
     }
 
 
