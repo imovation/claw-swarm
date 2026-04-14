@@ -36,23 +36,29 @@
 - **原因**：运维通过 `claw tui` 操作，不需要额外端口暴露
 - **决策**：移除 Ingress 相关工作，保持架构简洁
 
+### Phase 4: Onebot 架构升级 (Completed ✅)
+- ✅ 从旧版双轨模式 (Dual-Mode) 升级为三态解耦模型 (Platform Dev / Biz Dev / App)
+- ✅ 剥离通用平台基建为独立底座系统 [onebot](https://github.com/imovation/onebot)
+- ✅ 实现反向反馈闭环机制：App → Biz Dev → Platform Dev
+- ✅ 清理冗余的 core-agent 模块（功能已由 .opencode/ 原生机制替代）
+
 ---
 
 ## 未来计划
 
-### Phase 3: 资源配额与自愈 (Resource Limits & Self-Healing)
+### Phase 5: 资源配额与自愈 (Resource Limits & Self-Healing)
 - **目标**：限制内存增长，提高系统稳定性
 - **任务**：
   - 支持 `resources.memory_limit` 配置注入 Systemd Cgroups (`MemoryHigh`)
   - 实现 Liveness 存活探测，自动重启假死 Pod
 
-### Phase 4: 代理网格 (Agent Mesh)
+### Phase 6: 代理网格 (Agent Mesh)
 - **目标**：连接实例，实现跨 Pod 任务下发
 - **任务**：
   - 利用 OpenClaw ACP 协议，在 `swarm.yaml` 中定义"信任关系"
   - 允许跨 Pod 内网 ACP 通信
 
-### Phase 5: 控制台可视化 (Control Plane UI)
+### Phase 7: 控制台可视化 (Control Plane UI)
 - **目标**：可视化集群监控与操作
 - **任务**：
   - 开发 Claw-Swarm Dashboard Web 界面
