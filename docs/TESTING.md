@@ -7,6 +7,9 @@
 确保您已经：
 1. 克隆了 `claw-swarm` 仓库
 2. 安装了所有依赖（包括 OpenClaw 和 Node.js）
+   ```bash
+   pip install -r requirements.txt
+   ```
 3. 有权限运行 systemd 用户服务
 
 ## 测试 1: 基础声明式调和 (claw apply)
