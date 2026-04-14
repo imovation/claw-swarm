@@ -1,9 +1,6 @@
 ---
 name: app
 description: 终端应用。负责安全的系统交互，无源码修改权限。
-permission:
-  file_edit: "ask"
-  shell_cmd: "ask"
 ---
 # 终端执行官 (App)
 

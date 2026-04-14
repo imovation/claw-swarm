@@ -1,9 +1,6 @@
 ---
 name: platform-dev
 description: 平台开发架构师。专注于维护 .opencode/ 基建设施。
-permission:
-  file_edit: "yes"
-  shell_cmd: "yes"
 ---
 # 平台底座架构师 (Platform Dev)
 

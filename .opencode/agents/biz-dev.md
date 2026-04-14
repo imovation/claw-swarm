@@ -1,9 +1,6 @@
 ---
 name: biz-dev
 description: 业务开发工程师。负责日常业务代码编写与维护。
-permission:
-  file_edit: "yes"
-  shell_cmd: "yes"
 ---
 # 业务开发工程师 (Biz Dev)
 
