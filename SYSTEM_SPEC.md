@@ -28,7 +28,7 @@ Code (代码/提示词)
 
 | 层级 | 位置 | 职责 |
 |------|------|------|
-| 系统层 | `SYSTEM_SPEC.md`, `AGENTS.md`, `agents/` | 全局规范、模块路由、核心准则 |
+| 系统层 | `SYSTEM_SPEC.md`, `.opencode/agents/biz-dev.md` | 全局规范、模块路由、核心准则 |
 | 模块层 | `modules/*/MODULE_SPEC.md` | 模块边界、对外接口 |
 | 功能层 | `modules/*/*/` | 具体功能实现 |
 
@@ -54,7 +54,7 @@ Code (代码/提示词)
 
 ## 二.一 ~ 二.三 核心开发规范
 
-> 6 条始终生效的硬规则已提取为 @agents/core-rules.md（通过 opencode.json 每次会话自动注入）。
+> 业务开发红线已提取至 .opencode/rules/biz-dev-rules.md（通过 biz-dev agent 注入）。
 > 以下保留设计原理供深入理解。
 
 ### 面向 Agent 编程 (AOP)
@@ -77,28 +77,24 @@ Code (代码/提示词)
 ### Agent 启动流程
 
 ```
-1. 始终注入（opencode.json instructions）→ gatekeeper.md + core-rules.md
-2. 模式锁定 → 用户 Tab 切换 dev-mode / app-mode agent（权限由 opencode permission 机械强制）
-3. 任务处理 → 按需 AGENTS.md @file 引导 → SYSTEM_SPEC.md → MODULE_SPEC.md → SPEC.md
+1. 角色锁定 → 用户 Tab 切换平台开发(platform-dev) / 业务开发(biz-dev) / 业务应用(app)
+2. 上下文注入 → 各个 agent 内部通过 @file 语法按需加载对应层级的 rules 和 spec
+3. 任务处理 → 根据 SYSTEM_SPEC.md 路由至 MODULE_SPEC.md → SPEC.md
 ```
 
-始终注入的内容（无需手动 Read）：
-- `agents/gatekeeper.md` — 双轨模式守门人
-- `agents/core-rules.md` — 6 条核心开发红线
-
-opencode agent 选择（Tab 键切换）：
-- `dev-mode` — 完整权限，遵循 Spec 驱动 + git 闭环
-- `app-mode` — 所有编辑/命令需用户确认，禁止修改源码
+各个 Agent 加载的内容：
+- `biz-dev` (默认) — 包含业务开发红线与 SYSTEM_SPEC.md 架构。
+- `platform-dev` — 包含平台级规则与通用工具的开发约束。
+- `app` — 面向用户的安全交互，仅加载操作约束与应用层只读权限。
 
 ### 各层 Spec 大小限制
 
 | 层级 | 文件 | 建议行数 | 加载时机 | 加载机制 |
 |------|------|----------|----------|----------|
-| 守门人 | agents/gatekeeper.md | ~11 | 每次会话 | opencode.json instructions 自动注入 |
-| 核心红线 | agents/core-rules.md | ~25 | 每次会话 | opencode.json instructions 自动注入 |
-| 系统层 | SYSTEM_SPEC.md | < 100 | 按需 | AGENTS.md @file 引导 Read |
-| 模块层 | MODULE_SPEC.md | < 50 | 任务进入模块 | AGENTS.md @file 引导 Read |
-| 功能层 | SPEC.md | < 30 | 理解/修改功能 | AGENTS.md @file 引导 Read |
+| 业务红线 | .opencode/rules/biz-dev-rules.md | ~25 | 业务开发时 | biz-dev 自动注入 |
+| 系统架构 | SYSTEM_SPEC.md | < 100 | 业务开发时 | biz-dev 自动注入 |
+| 模块层 | MODULE_SPEC.md | < 50 | 任务进入模块 | 显式 Read |
+| 功能层 | SPEC.md | < 30 | 理解/修改功能 | 显式 Read |
 
 ---
 
