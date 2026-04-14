@@ -117,12 +117,7 @@ claw matrix pairing      # modules/matrix-channel/device-manager/
 ## 五、 模块路由索引树 (Routing Map)
 *Agent 提示：当需要了解或修改某一具体领域逻辑时，请严格按以下路径寻找对应的 `MODULE_SPEC.md` 以获取上下文。*
 
-### 1. core-agent 模块 ✅
-负责 Agent 交互逻辑、双轨模式 (Dual-Mode) 的控制、以及用户 Issue 提报与反馈流程。
-- `dual-mode/` — 双轨模式核心逻辑
-- `model-manager/` — 模型配置诊断与修复
-
-### 2. orchestration 模块 ✅
+### 1. orchestration 模块 ✅
 负责读取与解析 `swarm.yaml`，执行状态对比 (Diff) 并在宿主机驱动 Systemd 进行最终的调和 (Reconciliation)。
 - `config-parser/` — 配置解析与校验
 - `reconciler/` — 调和控制器 (精确 Diff + dry-run)
@@ -132,12 +127,12 @@ claw matrix pairing      # modules/matrix-channel/device-manager/
 - `tui.py` — 交互式终端
 - `templates/` — Jinja2 模板引擎
 
-### 3. network-mesh 模块 ✅
+### 2. network-mesh 模块 ✅
 负责全局代理配置注入、端口分配与实例网络通信机制。
 - `proxy-injector/` — 代理环境变量幂等注入
 - `port-manager/` — 端口变更管理
 
-### 4. matrix-channel 模块 ✅
+### 3. matrix-channel 模块 ✅
 负责 Matrix E2EE 加密、账号认证、群组和私信等渠道通讯保障。
 - `account-manager/` — 账号凭证写入
 - `e2ee-verifier/` — E2EE 加密状态验证
