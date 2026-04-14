@@ -34,7 +34,7 @@
 
 ```
 modules/
-├── core-agent/           # Agent 核心逻辑 (双轨模式)
+
 ├── orchestration/        # 编排模块 (核心)
 │   ├── config-parser/    # swarm.yaml 解析
 │   ├── reconciler/       # 状态调和
@@ -117,6 +117,6 @@ claw matrix pairing <profile> list
 ## 开发者文档
 
 - [系统宪法](SYSTEM_SPEC.md)
-- [底层架构详述](docs/ARCHITECTURE.md)
-- [Agent 操作指南](AGENTS.md)
+
+
 - [演进路线图](docs/ROADMAP.md)

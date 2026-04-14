@@ -16,8 +16,8 @@
 
 ### 2. 业务开发工程师 (Biz Dev)
 - **ID**: `biz-dev` (默认 Agent)
-- **职责**: 在平台框架的约束下，编写和维护具体业务逻辑（如 `claw-swarm` 容器编排）。
-- **作用域**: 业务代码目录 (`modules/`, `bin/`, `swarm.yaml` 等)。
+- **职责**: 在平台框架的约束下，编写和维护具体的业务逻辑。
+- **作用域**: 项目的业务代码目录（根目录及除 `.opencode/` 外的所有子目录）。
 - **注入上下文**: 
   - `@file .opencode/rules/biz-dev-rules.md` (业务开发红线：Spec驱动、治本原则、KISS等)
   - `@file SYSTEM_SPEC.md` (业务系统架构)
@@ -26,7 +26,7 @@
 ### 3. 终端执行官 (App)
 - **ID**: `app`
 - **职责**: 面向终端用户的交互入口，响应自然语言指令并安全调用系统工具。
-- **作用域**: 全局只读，或执行受限的 CLI 命令（如 `claw apply`）。禁止触碰任何源码和 Spec。
+- **作用域**: 全局只读，或执行受限的 CLI 业务命令。禁止触碰任何源码和 Spec。
 - **注入上下文**: `@file .opencode/rules/app-rules.md` (应用限制与终端操作规范)
 - **权限**: `file_edit: "ask"`, `shell_cmd: "ask"`（需配置强制拦截）。
 
@@ -54,9 +54,9 @@
 ## 四、 实施重构路径 (Transition Path)
 
 1. **配置瘦身**: 清空 `opencode.json` 中臃肿的 `instructions`，仅保留底层环境配置。
-2. **规则入库**: 将原 `agents/core-rules.md` 迁移重构入 `.opencode/rules/biz-dev-rules.md`，并新设平台和应用规则。
+2. **规则入库**: 将开发红线迁移重构入 `.opencode/rules/biz-dev-rules.md`，并新设平台和应用规则。
 3. **角色实例化**: 在 `.opencode/agents/` 下建立三态 Markdown 文件，使用 `@file` 精确引入对应的 `rules/`。
-4. **遗留清理**: 删除项目根目录下不再使用的 `agents/` 目录和全局 `AGENTS.md`。
+4. **遗留清理**: 删除项目根目录下不再使用的旧代理配置和全局说明。
 
 ## 五、 反哺闭环机制 (Feedback Loop)
 
