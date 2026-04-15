@@ -36,17 +36,26 @@ def print_help():
     print("""bin/claw — Claw-Swarm 统一 CLI 入口
 
 用法:
-  claw apply               — 调和集群状态 (orchestration/reconciler)
-  claw status              — 查看集群看板 (orchestration/status.py)
-  claw tui <NAME>          — 进入实例 TUI (orchestration/tui.py)
-  claw port <NAME> <PORT>  — 变更端口 (network-mesh/port-manager)
-  claw repair <NAME>       — 修复实例 (orchestration/pod-provisioner/repair.py)
-  claw rm <NAME>           — 销毁实例 (orchestration/pod-provisioner/remove.py)
-  claw ps                  — 精细进程状态 (orchestration/ps.py)
-  claw matrix add <PROFILE>  — 配置 Matrix 账号 (matrix-channel)
-  claw matrix verify <PROFILE> status|bootstrap — E2EE 验证
-  claw matrix devices <PROFILE> list|prune — 设备管理
-  claw matrix pairing <PROFILE> list|approve — 配对审批""")
+  claw apply [选项]         — 调和集群状态
+                               选项: --dry-run, --skip-update, -y
+  claw status               — 查看集群看板
+  claw ps                   — 精细进程状态 (含插件信息)
+  claw tui <NAME>           — 进入实例 TUI
+  claw port <NAME> <PORT>   — 变更端口 [--skip-yaml]
+  claw repair <NAME>        — 修复实例 (重建配置并重启)
+  claw rm <NAME>            — 销毁实例 (⚠️ 永久删除)
+
+Matrix 渠道管理:
+  claw matrix add <PROFILE> [--homeserver URL] [--token TOKEN] [--encryption]
+                             — 配置 Matrix 账号
+  claw matrix verify <PROFILE> status|bootstrap|rotate|backup
+                             — E2EE 验证与管理
+  claw matrix devices <PROFILE> list|prune|revoke <id>
+                             — 设备管理
+  claw matrix pairing <PROFILE> list|approve <id>|reject <id>|block <user>
+                             — 配对审批
+
+更多信息: docs/CLI_USAGE.md""")
 
 
 def route_matrix(args):

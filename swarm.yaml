@@ -14,13 +14,13 @@ global:
 pods:
 - name: main
   profile: default
-  port: 19999
-  token: 317939afcb24c15aa26a313932fb2f46b763200a63e7e08f
+  port: 18789
+  token: shining66
   resources:
     browser: shared
 - name: aimee
   profile: aimee
   port: 18881
-  token: aimee666666
+  token: aimee66
   resources:
     browser: dedicated
