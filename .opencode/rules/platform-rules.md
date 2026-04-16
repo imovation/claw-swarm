@@ -24,3 +24,6 @@
 - 平台层的架构方法论遵循 `.opencode/specs/SPEC_PYRAMID.md` 中定义的金字塔分层与渐进式披露规范。
 - **元架构自洽（吃自己的狗粮）**：当你为 Onebot 本身开发新工具或 Skill 时，必须遵循“在物理结构上向 Opencode 引擎变通，在精神内核上绝对服从金字塔架构”的元准则。必须采用高内聚的微模块组织形式（如 `.opencode/tools/xxx/`），将执行代码、`INTENTS.md` 与 `SPEC.md` 同生同灭地放在同一个子目录中。严禁在根目录散落无归属的孤魂野鬼脚本。根目录仅允许存在统一路由包装器（Wrapper）。
 - 任何新的 Rule、Tool 或 Skill 的创建，必须先更新对应的 SPEC。
+## 6. 安全编辑协议 (Safe Edit Protocol)
+- **严禁全量覆盖 (Ban Full Overwrite)**：LLM 存在上下文截断和过度总结的惰性。修改任何非空的长文件（如 Spec 或核心代码）时，**绝对禁止**使用全量覆盖写入（如 `cat > file`）。
+- **强制增量修改 (Incremental Edit Only)**：必须使用精确的字符串替换工具（Edit）、增量的 `sed` 或 Python 脚本进行“外科手术式”的局部修改。若必须重写，必须先创建 `.bak` 备份并用 `diff` 自证无遗漏。
