@@ -18,12 +18,15 @@ if [ "$COMMAND" == "pull" ]; then
     curl -sL $ONEBOT_REPO -o onebot-main.zip
     unzip -q onebot-main.zip
     
-    # Safe copy: 只覆盖核心通用组件，绝不触碰 opencode.json 和业务级的 Skill
-    cp -r onebot-main/.opencode/agents/* .opencode/agents/
-    cp -r onebot-main/.opencode/rules/* .opencode/rules/
-    cp -r onebot-main/.opencode/specs/* .opencode/specs/
+    # Safe copy: 使用 rsync 实现精准镜像覆盖，清除本地可能残留的“已废弃”文件（如旧版本的 SPEC 或规则）
+    # 绝不触碰 opencode.json 和业务级的 Skill 与 INTENTS.md
+    rsync -a --delete onebot-main/.opencode/agents/ .opencode/agents/
+    rsync -a --delete onebot-main/.opencode/rules/ .opencode/rules/
+    rsync -a --delete onebot-main/.opencode/specs/ .opencode/specs/
+    rsync -a --delete onebot-main/.opencode/tools/ .opencode/tools/
+    
+    # 对于 skills 目录，由于可能存在业务级 skill，不能使用 --delete（否则会误删业务 skill），仅做增量覆盖
     cp -r onebot-main/.opencode/skills/* .opencode/skills/
-    cp -r onebot-main/.opencode/tools/* .opencode/tools/
     
     rm -rf onebot-main onebot-main.zip
     echo "✅ Onebot 基建架构已成功更新至最新版本！"
@@ -35,10 +38,12 @@ elif [ "$COMMAND" == "push" ]; then
         exit 1
     fi
     
-    # 提取核心通用组件回母体
-    cp -r .opencode/agents/* "$ONEBOT_LOCAL_DIR/.opencode/agents/"
-    cp -r .opencode/rules/* "$ONEBOT_LOCAL_DIR/.opencode/rules/"
-    cp -r .opencode/specs/* "$ONEBOT_LOCAL_DIR/.opencode/specs/"
+    # 提取核心通用组件回母体 (同样使用 rsync 保持一致性)
+    rsync -a --delete .opencode/agents/ "$ONEBOT_LOCAL_DIR/.opencode/agents/"
+    rsync -a --delete .opencode/rules/ "$ONEBOT_LOCAL_DIR/.opencode/rules/"
+    rsync -a --delete .opencode/specs/ "$ONEBOT_LOCAL_DIR/.opencode/specs/"
+    rsync -a --delete .opencode/tools/ "$ONEBOT_LOCAL_DIR/.opencode/tools/"
+    
     # 仅反哺（覆写）母体仓库中已经存在的通用 Skill，防止业务专属 Skill 污染母体
     for skill_path in "$ONEBOT_LOCAL_DIR"/.opencode/skills/*; do
         if [ -d "$skill_path" ]; then
@@ -49,7 +54,6 @@ elif [ "$COMMAND" == "push" ]; then
         fi
     done
     echo "💡 提示：如果在此项目中开发了全新的【通用平台 Skill】，请首次手动复制到母体仓库的 skills 目录下，之后便可自动同步。"
-    cp -r .opencode/tools/* "$ONEBOT_LOCAL_DIR/.opencode/tools/"
     
     cd "$ONEBOT_LOCAL_DIR"
     git add .opencode/
