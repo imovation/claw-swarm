@@ -4,7 +4,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-EnvironmentFile={{ env_file }}
+# default profile 使用 ~/.openclaw/，其他 profile 使用 ~/.openclaw-<profile>/
+# 使用 `-` 前缀表示文件不存在时忽略
+EnvironmentFile=-{{ claw_user_home }}/.openclaw/runtime/env
+EnvironmentFile=-{{ claw_user_home }}/.openclaw-{{ profile }}/runtime/env
 ExecStart={{ node_bin }} {{ openclaw_bin }} --profile {{ profile }} gateway run --port {{ port }} --bind loopback
 Restart=always
 RestartSec=5

@@ -180,11 +180,12 @@ def _ensure_template_service(node_bin: Path, openclaw_bin: Path):
         return
     print("⚠️  未发现 Systemd 模板服务，正在创建...")
     SYSTEMD_DIR.mkdir(parents=True, exist_ok=True)
-    # 主 Pod (default) 的 ExecStart 无 --profile 参数，使用 %i 占位符
+    # 使用 %i 作为 systemd 实例占位符
+    # 模板会同时尝试加载 default profile 路径 (~/.openclaw/) 和命名 profile 路径 (~/.openclaw-%i/)
     content = _render(
         "systemd.service.j2",
         profile="%i",
-        env_file=f"{CLAW_USER_HOME}/.openclaw-%i/runtime/env",
+        claw_user_home=CLAW_USER_HOME,
         node_bin=node_bin,
         openclaw_bin=openclaw_bin,
         port="${OPENCLAW_PORT}",
