@@ -2,7 +2,7 @@
 > 本文件是系统的第一性原理来源，记录了人类的每一次原始发声。**代码是瞬态的，意图是永恒的。**
 > 任何 Agent 绝对禁止修改、删除或精简历史意图记录。所有新意图必须以追加（Append）的形式写在文件最末尾或最顶端。
 >
-# Claw-Swarm 业务意图记录 (Business Requests)
+# Claw-Swarm 业务意图记录 (Business Intents)
 
 本文件记录 Claw-Swarm 业务层面的需求迭代历史。
 
