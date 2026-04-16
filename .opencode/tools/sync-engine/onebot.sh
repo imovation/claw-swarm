@@ -23,6 +23,7 @@ if [ "$COMMAND" == "pull" ]; then
     cp -r onebot-main/.opencode/rules/* .opencode/rules/
     cp -r onebot-main/.opencode/specs/* .opencode/specs/
     cp -r onebot-main/.opencode/skills/deep-cure .opencode/skills/
+    cp -r onebot-main/.opencode/tools/* .opencode/tools/
     
     rm -rf onebot-main onebot-main.zip
     echo "✅ Onebot 基建架构已成功更新至最新版本！"
@@ -39,6 +40,7 @@ elif [ "$COMMAND" == "push" ]; then
     cp -r .opencode/rules/* "$ONEBOT_LOCAL_DIR/.opencode/rules/"
     cp -r .opencode/specs/* "$ONEBOT_LOCAL_DIR/.opencode/specs/"
     cp -r .opencode/skills/deep-cure "$ONEBOT_LOCAL_DIR/.opencode/skills/"
+    cp -r .opencode/tools/* "$ONEBOT_LOCAL_DIR/.opencode/tools/"
     
     cd "$ONEBOT_LOCAL_DIR"
     git add .opencode/
