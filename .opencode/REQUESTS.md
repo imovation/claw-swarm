@@ -24,5 +24,5 @@
 
 ## 需求 2: 跨态反哺闭环机制 (Feedback Loop)
 **核心目标**: 建立自下而上的需求投递流，防止不同角色越权，同时保持系统的自进化能力。
-1. **App 反哺 Biz Dev**: 用户在 App 模式反馈 Bug 或需求时，App Agent 必须记录需求到根目录 `REQUESTS.md`，并提示用户 Tab 切换至 `biz-dev` 模式处理。
-2. **Biz Dev 反哺 Platform Dev**: Biz Dev 开发遇到平台工具/规则限制时，记录需求到 `.opencode/REQUESTS.md`，并提示用户切换至 `platform-dev` 模式更新基建。
+1. **App 反哺 Biz Dev**: 用户在 App 模式反馈 Bug 或需求时，App Agent 必须记录需求到根目录 `INTENTS.md`，并提示用户 Tab 切换至 `biz-dev` 模式处理。
+2. **Biz Dev 反哺 Platform Dev**: Biz Dev 开发遇到平台工具/规则限制时，记录需求到 `.opencode/INTENTS.md`，并提示用户切换至 `platform-dev` 模式更新基建。

@@ -29,14 +29,14 @@ Code (代码/提示词)
 ```
 功能目录/
 ├── SPEC.md              # 功能规范 (Agent 指令)
-├── REQUESTS.md          # 原始需求记录 (人类意图)
+├── INTENTS.md          # 原始意图记录 (人类意图)
 ├── *.py / *.ts / etc.   # 可执行代码 (主逻辑)
 ├── scripts/             # 辅助脚本 (可选)
 ├── templates/           # 模板文件 (可选)
 └── references/          # 参考文档 (可选)
 ```
 
-**触发规则**：开发模式下，用户提出需求时 → 创建/更新 REQUESTS.md → 迭代 SPEC.md → 编写代码
+**触发规则**：开发模式下，用户提出需求时 → 创建/更新 INTENTS.md → 迭代 SPEC.md → 编写代码
 
 ### 约束关系
 
@@ -47,6 +47,8 @@ Code (代码/提示词)
 ## 二、 核心 Agent 编程方法论 (AOP)
 
 ### Spec 驱动
+4. **双向锚定溯源 (Bidirectional Traceability)**：每个功能或模块的 `SPEC.md` 文件头部，必须强制声明它响应了 `INTENTS.md` 中的哪一条原始人类意图。让后来接手的 Agent 顺藤摸瓜，随时能够重构甚至推翻旧代码。
+5. **AI 原生骨架 (AI-Native Template)**：所有的 `SPEC.md` 文件绝不能写成随意的散文，必须强制采用 `.opencode/specs/SPEC_TEMPLATE.md` 提供的标准化骨架（核心意图、边界约束、状态契约、验收标准），以便于系统化的语义解析。
 
 1. **Spec 驱动 (Spec-Driven)**：Spec 既是给人类看的需求，也是 Agent 必须执行的提示词代码。
 2. **高内聚低耦合**：特定功能的 `SPEC.md` 必须与其可执行代码存放在同一目录下，同生同灭。
