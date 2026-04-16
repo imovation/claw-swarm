@@ -109,3 +109,16 @@ claw matrix devices main prune-stale
   如果您怀疑某个 Pod 的环境被破坏（如临时目录被删），再次运行 `claw apply` 即可一键自愈
 - **浏览器冲突处理**：
   确保 `swarm.yaml` 中的 `browser` 模式为 `dedicated`，系统会自动为该 Pod 准备独立的浏览器 UserData 目录
+### 场景 H：架构基建双向同步 (Onebot Sync)
+由于本系统建立在 [onebot](https://github.com/imovation/onebot) 智能体底座架构上，当基建发生演进时，您可以通过自带的同步引擎进行操作：
+
+```bash
+# 1. 汲取母体最新认知 (向下同步)
+# 安全覆盖本项目的 .opencode/ 核心组件，保护业务配置
+./onebot.sh pull
+
+# 2. 架构基建就地演进 (向上反哺)
+# 当你在本项目中修改了 .opencode/rules/ 等底层规则且验证通过后
+# 将本地变更反向提取并推送到本地的 onebot 母体仓库
+./onebot.sh push
+```
