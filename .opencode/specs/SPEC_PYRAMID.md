@@ -77,3 +77,15 @@ Code (代码/提示词)
 | 系统架构 | SYSTEM_SPEC.md | < 100 | 业务开发时 | biz-dev 自动注入 |
 | 模块层 | MODULE_SPEC.md | < 50 | 任务进入模块 | 显式 Read |
 | 功能层 | SPEC.md | < 30 | 理解/修改功能 | 显式 Read |
+## 四、 底座自身的架构自洽 (Meta-Architecture Self-Consistency)
+
+> “制造尺子的尺子，自己必须是直的。”
+
+虽然本规格主要约束【业务项目】，但 Onebot 作为基建底座本身，也必须受到金字塔架构“精神内核”的绝对约束：
+
+1. **物理结构的变通**：Onebot 的物理目录（`.opencode/rules/`, `agents/`）受限于底层 Opencode 运行引擎的强解析规则，无法强行套用业务层的 `modules/` 结构。这是向物理现实的妥协。
+2. **精神内核的绝对服从**：Onebot 内部的任何工程化能力（如通用工具 Tool、通用技能 Skill）必须严格遵循**高内聚微模块**模式。
+   - **反面教材**：在项目根目录随意丢弃一个 `script.sh`，并将它的说明文档写在 `specs/SCRIPT_SPEC.md` 里（这违背了高内聚，造成了代码与文档的撕裂）。
+   - **正确示范（吃自己的狗粮）**：建立 `.opencode/tools/sync-engine/` 目录，将核心脚本 `onebot.sh` 和它的规格文档 `SPEC.md` 紧密绑定在同一目录下，同生同灭。在项目根目录仅保留一个起到路由分发作用的 Wrapper 壳子（遵循统一 CLI 入口规范）。
+
+任何 Platform Dev 在扩展 Onebot 基建时，若违背上述“高内聚低耦合”与“统一路由入口”的内核精神，即视为破坏了底座的架构合法性。

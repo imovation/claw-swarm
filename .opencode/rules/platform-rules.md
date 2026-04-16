@@ -21,4 +21,5 @@
 
 ## 5. Spec 驱动架构
 - 平台层的架构方法论遵循 `.opencode/specs/SPEC_PYRAMID.md` 中定义的金字塔分层与渐进式披露规范。
-- 任何新的 Rule 或 Skill 的创建，必须先更新对应的 SPEC。
+- **元架构自洽（吃自己的狗粮）**：当你为 Onebot 本身开发新工具或 Skill 时，必须遵循“在物理结构上向 Opencode 引擎变通，在精神内核上绝对服从金字塔架构”的元准则。必须采用高内聚的微模块组织形式（如 `.opencode/tools/xxx/`），将执行代码、`REQUESTS.md` 与 `SPEC.md` 同生同灭地放在同一个子目录中。严禁在根目录散落无归属的孤魂野鬼脚本。根目录仅允许存在统一路由包装器（Wrapper）。
+- 任何新的 Rule、Tool 或 Skill 的创建，必须先更新对应的 SPEC。
