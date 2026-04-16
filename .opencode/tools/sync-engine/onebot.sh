@@ -22,7 +22,7 @@ if [ "$COMMAND" == "pull" ]; then
     cp -r onebot-main/.opencode/agents/* .opencode/agents/
     cp -r onebot-main/.opencode/rules/* .opencode/rules/
     cp -r onebot-main/.opencode/specs/* .opencode/specs/
-    cp -r onebot-main/.opencode/skills/deep-cure .opencode/skills/
+    cp -r onebot-main/.opencode/skills/* .opencode/skills/
     cp -r onebot-main/.opencode/tools/* .opencode/tools/
     
     rm -rf onebot-main onebot-main.zip
@@ -39,7 +39,16 @@ elif [ "$COMMAND" == "push" ]; then
     cp -r .opencode/agents/* "$ONEBOT_LOCAL_DIR/.opencode/agents/"
     cp -r .opencode/rules/* "$ONEBOT_LOCAL_DIR/.opencode/rules/"
     cp -r .opencode/specs/* "$ONEBOT_LOCAL_DIR/.opencode/specs/"
-    cp -r .opencode/skills/deep-cure "$ONEBOT_LOCAL_DIR/.opencode/skills/"
+    # 仅反哺（覆写）母体仓库中已经存在的通用 Skill，防止业务专属 Skill 污染母体
+    for skill_path in "$ONEBOT_LOCAL_DIR"/.opencode/skills/*; do
+        if [ -d "$skill_path" ]; then
+            skill_name=$(basename "$skill_path")
+            if [ -d ".opencode/skills/$skill_name" ]; then
+                cp -r ".opencode/skills/$skill_name" "$ONEBOT_LOCAL_DIR/.opencode/skills/"
+            fi
+        fi
+    done
+    echo "💡 提示：如果在此项目中开发了全新的【通用平台 Skill】，请首次手动复制到母体仓库的 skills 目录下，之后便可自动同步。"
     cp -r .opencode/tools/* "$ONEBOT_LOCAL_DIR/.opencode/tools/"
     
     cd "$ONEBOT_LOCAL_DIR"
