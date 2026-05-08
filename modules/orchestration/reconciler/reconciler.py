@@ -66,6 +66,16 @@ def compute_diff(desired: SwarmConfig, actual: dict) -> dict:
         if name not in actual_map:
             to_create.append(pod)
         else:
+            # 检查 profile 是否匹配: swarm.yaml 的 profile 与系统实际运行的 service profile
+            # 必须一致，否则旧服务会与新建服务争抢同一端口，导致重启风暴
+            resolved = resolve_pod(pod.profile)
+            desired_profile = resolved["profile_arg"]
+            actual_profile = actual_map[name].get("profile", "")
+            if desired_profile != actual_profile:
+                # 标记旧服务为孤儿（将被停止/禁用），同时重新创建正确 profile 的服务
+                to_create.append(pod)
+                orphans.append(name)
+                continue
             # 检查端口是否漂移
             svc_name = actual_map[name]["service"] + ".service"
             port_out = subprocess.run(
@@ -139,6 +149,10 @@ def reconcile(config_path: Path, dry_run: bool = False,
         "no_proxy": config.proxy.no_proxy,
     })
 
+    # Phase 1: 先清理孤儿 Pod（包括 profile 不匹配的旧服务），释放端口
+    handle_orphans(diff["orphans"], actual, config.orphan_policy)
+
+    # Phase 2: 再供应新/更新服务（此时端口已释放，不会冲突）
     all_pods = diff["to_create"] + diff["to_update"]
     for pod in all_pods:
         all_plugins = list(set(global_plugins + pod.plugins))
@@ -155,8 +169,6 @@ def reconcile(config_path: Path, dry_run: bool = False,
         else:
             print(f"   ❌ {pod.name} 同步失败。")
         sys.stdout.flush()
-
-    handle_orphans(diff["orphans"], actual, config.orphan_policy)
 
 
 def main():
