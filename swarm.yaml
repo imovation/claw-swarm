@@ -10,7 +10,7 @@ global:
   plugins:
   - opencode-antigravity-auth
   matrix:
-    enabled: false
+    enabled: true
 pods:
 - name: main
   profile: default

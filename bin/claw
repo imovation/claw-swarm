@@ -26,6 +26,7 @@ ROUTES = {
 # Matrix 子命令路由
 MATRIX_ROUTES = {
     "add":      MODULE_ROOT / "matrix-channel/account-manager/account_manager.py",
+    "list":     MODULE_ROOT / "matrix-channel/account-manager/account_manager.py",
     "verify":   MODULE_ROOT / "matrix-channel/e2ee-verifier/e2ee_verifier.py",
     "devices":  MODULE_ROOT / "matrix-channel/device-manager/device_manager.py",
     "pairing":  MODULE_ROOT / "matrix-channel/device-manager/device_manager.py",
@@ -47,13 +48,15 @@ def print_help():
 
 Matrix 渠道管理:
   claw matrix add <PROFILE> [--homeserver URL] [--token TOKEN] [--encryption]
-                             — 配置 Matrix 账号
+                              [--account ID] [--default-account ID]
+                              — 配置 Matrix 账号 (支持多账号)
+  claw matrix list <PROFILE>  — 列出已配置的 Matrix 账号
   claw matrix verify <PROFILE> status|bootstrap|rotate|backup
-                             — E2EE 验证与管理
+                              — E2EE 验证与管理
   claw matrix devices <PROFILE> list|prune|revoke <id>
-                             — 设备管理
+                              — 设备管理
   claw matrix pairing <PROFILE> list|approve <id>|reject <id>|block <user>
-                             — 配对审批
+                              — 配对审批
 
 更多信息: docs/CLI_USAGE.md""")
 
@@ -76,7 +79,8 @@ def route_matrix(args):
         print(f"❌ 找不到对应脚本: {target}")
         sys.exit(1)
 
-    os.execv(sys.executable, [sys.executable, str(target)] + args[1:])
+    # 将子命令名称也传给脚本，以支持同一脚本处理多种操作（如 add/list）
+    os.execv(sys.executable, [sys.executable, str(target)] + [sub] + args[1:])
 
 
 def main():

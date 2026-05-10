@@ -89,6 +89,7 @@ def resolve_pod(profile: str) -> PodInfo:
     return {
         "profile_arg": profile_arg,
         "dir": pod_dir,
+        "config": pod_dir / "openclaw.json",
         "service_name": "openclaw-gateway",  # 始终是 openclaw-gateway
         "service": systemd_dir / "openclaw-gateway@.service",  # 模板文件
     }

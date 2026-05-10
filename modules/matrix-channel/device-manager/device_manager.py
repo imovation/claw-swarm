@@ -109,6 +109,7 @@ def approve_pairing(profile: str, code: str):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Matrix 设备管理')
+    parser.add_argument("subcommand", choices=["devices", "pairing"], help="子命令")
     parser.add_argument("profile", help="Pod profile 名称")
     parser.add_argument("action", choices=["list", "prune", "pairing-list", "approve"],
                         help="操作")

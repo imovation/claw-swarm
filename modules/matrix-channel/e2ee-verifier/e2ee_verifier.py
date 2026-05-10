@@ -102,6 +102,7 @@ def backup_status(profile: str):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Matrix E2EE 验证管理')
+    parser.add_argument("subcommand", choices=["verify"], help="子命令")
     parser.add_argument("profile", help="Pod profile 名称")
     parser.add_argument("action", choices=["status", "bootstrap", "backup"], 
                         help="操作: status/bootstrap/backup")
